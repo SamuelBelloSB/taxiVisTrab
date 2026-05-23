@@ -1,6 +1,5 @@
 import * as d3 from 'd3';
 
-
 export async function loadChart(data, margens = { left: 50, right: 25, top: 25, bottom: 50 }) {
     const svg = d3.select('svg');
 
@@ -8,12 +7,32 @@ export async function loadChart(data, margens = { left: 50, right: 25, top: 25, 
         return;
     }
 
+    const svgWidth = +svg.style('width').split('px')[0];
+    const svgHeight = +svg.style('height').split('px')[0];
+
     // ---- Escalas
     const distExtent = d3.extent(data, d => d.trip_distance);
-    const mapX = d3.scaleLinear().domain(distExtent).range([0, +svg.style("width").split("px")[0] - margens.left - margens.right]);
+    const mapX = d3.scaleLinear().domain(distExtent).range([0, svgWidth - margens.left - margens.right]);
 
     const tipExtent = d3.extent(data, d => d.tip_amount);
-    const mapY = d3.scaleLinear().domain(tipExtent).range([+svg.style("height").split("px")[0] - margens.bottom - margens.top, 0]);
+    const mapY = d3.scaleLinear().domain(tipExtent).range([svgHeight - margens.bottom - margens.top, 0]);
+
+    // ---- Escala de Cores (NOVO)
+    // Mapeia a string 'yellow' para a cor amarela e 'green' para verde
+    const colorScale = d3.scaleOrdinal()
+        .domain(['yellow', 'green'])
+        .range(['#F7B731', '#20BF6B']); 
+
+    // ---- Título do gráfico
+    const title = svg.selectAll('#chartTitle').data([0]);
+    title.join('text')
+        .attr('id', 'chartTitle')
+        .attr('x', svgWidth / 2)
+        .attr('y', margens.top / 2)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '18px')
+        .attr('font-weight', '700')
+        .text('Relação entre Distância da Corrida e Valor da Gorjeta');
 
     // ---- Eixos
     const xAxis  = d3.axisBottom(mapX);
@@ -22,7 +41,7 @@ export async function loadChart(data, margens = { left: 50, right: 25, top: 25, 
     groupX.join('g')
         .attr('id', 'axisX')
         .attr('class', 'x axis')
-        .attr('transform', `translate(${margens.left}, ${+svg.style('height').split('px')[0] - margens.bottom})`)
+        .attr('transform', `translate(${margens.left}, ${svgHeight - margens.bottom})`)
         .call(xAxis);
 
     const yAxis  = d3.axisLeft(mapY);
@@ -33,6 +52,51 @@ export async function loadChart(data, margens = { left: 50, right: 25, top: 25, 
         .attr('class', 'y axis')
         .attr('transform', `translate(${margens.left}, ${margens.top})`)
         .call(yAxis);
+
+    const xLabel = svg.selectAll('#axisXLabel').data([0]);
+    xLabel.join('text')
+        .attr('id', 'axisXLabel')
+        .attr('x', svgWidth / 2)
+        .attr('y', svgHeight - 10)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '14px')
+        .text('Eixo X: Distância da corrida (trip_distance)');
+
+    const yLabel = svg.selectAll('#axisYLabel').data([0]);
+    yLabel.join('text')
+        .attr('id', 'axisYLabel')
+        .attr('x', -svgHeight / 2)
+        .attr('y', 15)
+        .attr('transform', 'rotate(-90)')
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '14px')
+        .text('Eixo Y: Valor da gorjeta (tip_amount)');
+
+    const legend = svg.selectAll('#legend').data([0]);
+    const legendGroup = legend.join('g')
+        .attr('id', 'legend')
+        .attr('transform', `translate(${svgWidth - margens.right - 180}, ${margens.top + 10})`);
+
+    const legendItems = legendGroup.selectAll('.legend-item').data(colorScale.domain());
+    const legendEnter = legendItems.join('g')
+        .attr('class', 'legend-item')
+        .attr('transform', (d, i) => `translate(0, ${i * 22})`);
+
+    legendEnter.selectAll('circle')
+        .data(d => [d])
+        .join('circle')
+        .attr('cx', 0)
+        .attr('cy', 0)
+        .attr('r', 6)
+        .attr('fill', d => colorScale(d));
+
+    legendEnter.selectAll('text')
+        .data(d => [d])
+        .join('text')
+        .attr('x', 14)
+        .attr('y', 5)
+        .attr('font-size', '13px')
+        .text(d => d === 'yellow' ? 'Yellow Taxi (círculo amarelo)' : 'Green Taxi (círculo verde)');
 
 
     // ---- Círculos
@@ -48,7 +112,11 @@ export async function loadChart(data, margens = { left: 50, right: 25, top: 25, 
         .append('circle')
         .attr('cx', d => mapX(d.trip_distance))
         .attr('cy', d => mapY(d.tip_amount))
-        .attr('r', 4);
+        .attr('r', 5) // Aumentado para 5 para melhor visualização
+        .attr('opacity', 0.7) // Opacidade para lidar com sobreposição
+        .style('fill', d => colorScale(d.taxi_color)) // Aplica a cor baseada no tipo de táxi
+        .style('stroke', '#333') // Borda escura suave
+        .style('stroke-width', 0.5);
 
     circles.exit()
         .remove();
@@ -56,7 +124,11 @@ export async function loadChart(data, margens = { left: 50, right: 25, top: 25, 
     circles
         .attr('cx', d => mapX(d.trip_distance))
         .attr('cy', d => mapY(d.tip_amount))
-        .attr('r', 4);
+        .attr('r', 5)
+        .attr('opacity', 0.7)
+        .style('fill', d => colorScale(d.taxi_color)) // Atualiza a cor se os dados mudarem
+        .style('stroke', '#333')
+        .style('stroke-width', 0.5);
 
     d3.select('#group')
         .attr('transform', `translate(${margens.left}, ${margens.top})`);
@@ -75,4 +147,9 @@ export function clearChart() {
     d3.select('#axisY')
         .selectAll('*')
         .remove();
-    }
+
+    d3.select('#chartTitle').remove();
+    d3.select('#axisXLabel').remove();
+    d3.select('#axisYLabel').remove();
+    d3.select('#legend').remove();
+}

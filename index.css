@@ -1,25 +1,22 @@
 body {
     margin: 20px;
-
     font-family: 'Times New Roman', Times, serif;
     font-size: 1.25em;
-  }
+}
 
 .main-container {
     height: 500px;
-
     display: flex;
     background-color: #efefef;
-
     flex-direction: column;
     flex-wrap: nowrap;
     justify-content: center; 
     align-items: center; 
 }
 
-.buttom-container {
+/* Corrigido de buttom-container para button-container */
+.button-container {
     display: flex;
-
     flex-direction: row;
     flex-wrap: nowrap;
     justify-content: center; 
@@ -29,19 +26,13 @@ body {
 svg {
     margin: 10px;
     background-color: #ffffff;
-
     border-radius: 8px;
     border: #bfbfbf solid 1px;
-
     height: 400px;
     width: 800px;
 }
 
-circle {
-    stroke: #006A71;
-    stroke-width: "3";
-    fill: #9ACBD0;
-}
+/* A regra 'circle' foi removida, pois o D3.js agora cuida das cores dinamicamente */
 
 button {
     margin: 10px;
