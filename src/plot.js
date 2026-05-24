@@ -1,5 +1,7 @@
 import * as d3 from 'd3';
 
+const formatCurrency = d3.format('$,.2f');
+
 export async function loadChart(data, margens = { left: 50, right: 25, top: 25, bottom: 50 }) {
     const svg = d3.select('svg');
 
@@ -135,6 +137,89 @@ export async function loadChart(data, margens = { left: 50, right: 25, top: 25, 
 
 }
 
+export async function loadMacroChart(data, margens = { left: 50, right: 25, top: 25, bottom: 50 }) {
+    const svg = d3.select('svg');
+
+    if (!svg) {
+        return;
+    }
+
+    const svgWidth = +svg.style('width').split('px')[0];
+    const svgHeight = +svg.style('height').split('px')[0];
+
+    const totals = data.map(d => ({
+        taxi_color: d.taxi_color,
+        total_tips: Number(d.total_tips)
+    }));
+
+    const colorScale = d3.scaleOrdinal()
+        .domain(['yellow', 'green'])
+        .range(['#F7B731', '#20BF6B']);
+
+    const maxTotal = d3.max(totals, d => d.total_tips) || 0;
+    const radiusScale = d3.scaleSqrt()
+        .domain([0, maxTotal])
+        .range([30, 90]);
+
+    const xScale = d3.scalePoint()
+        .domain(totals.map(d => d.taxi_color))
+        .range([0, svgWidth - margens.left - margens.right])
+        .padding(0.5);
+
+    const title = svg.selectAll('#chartTitle').data([0]);
+    title.join('text')
+        .attr('id', 'chartTitle')
+        .attr('x', svgWidth / 2)
+        .attr('y', margens.top / 2)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '18px')
+        .attr('font-weight', '700')
+        .text('Comparativo de Gorjetas Totais (Amarelo vs Verde)');
+
+    const group = svg.selectAll('#macroGroup').data([0]);
+    const container = group.join('g')
+        .attr('id', 'macroGroup')
+        .attr('transform', `translate(${margens.left}, ${margens.top + 30})`);
+
+    const items = container.selectAll('.macro-item').data(totals, d => d.taxi_color);
+    const itemsEnter = items.enter()
+        .append('g')
+        .attr('class', 'macro-item');
+
+    itemsEnter.append('circle');
+    itemsEnter.append('text').attr('class', 'macro-label');
+    itemsEnter.append('text').attr('class', 'macro-value');
+
+    const itemsMerged = itemsEnter.merge(items);
+
+    itemsMerged
+        .attr('transform', d => `translate(${xScale(d.taxi_color)}, ${svgHeight / 2 - margens.top - margens.bottom})`);
+
+    itemsMerged.select('circle')
+        .attr('r', d => radiusScale(d.total_tips))
+        .attr('fill', d => colorScale(d.taxi_color))
+        .attr('opacity', 0.8)
+        .attr('stroke', '#333')
+        .attr('stroke-width', 1);
+
+    itemsMerged.select('.macro-label')
+        .attr('x', 0)
+        .attr('y', d => -radiusScale(d.total_tips) - 14)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '14px')
+        .attr('font-weight', '700')
+        .text(d => d.taxi_color === 'yellow' ? 'Yellow Taxi' : 'Green Taxi');
+
+    itemsMerged.select('.macro-value')
+        .attr('x', 0)
+        .attr('y', d => radiusScale(d.total_tips) + 24)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '14px')
+        .text(d => formatCurrency(d.total_tips));
+
+    items.exit().remove();
+}
+
 export function clearChart() {
     d3.select('#group')
         .selectAll('circle')
@@ -148,6 +233,7 @@ export function clearChart() {
         .selectAll('*')
         .remove();
 
+    d3.select('#macroGroup').remove();
     d3.select('#chartTitle').remove();
     d3.select('#axisXLabel').remove();
     d3.select('#axisYLabel').remove();

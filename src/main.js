@@ -1,21 +1,36 @@
 import { Taxi } from "./taxi";
-import { loadChart, clearChart } from './plot';
+import { loadChart, loadMacroChart, clearChart } from './plot';
 
-function callbacks(data) {
-    const loadBtn  = document.querySelector('#loadBtn');
+function setActiveView(activeId) {
+    document.querySelectorAll('.view-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.id === activeId);
+    });
+}
+
+function setupViewButtons(microData, macroData) {
+    const microBtn = document.querySelector('#viewMicroBtn');
+    const macroBtn = document.querySelector('#viewMacroBtn');
     const clearBtn = document.querySelector('#clearBtn');
 
-    if (!loadBtn || !clearBtn) {
+    if (!microBtn || !macroBtn || !clearBtn) {
         return;
     }
 
-    loadBtn.addEventListener('click', async () => {
+    microBtn.addEventListener('click', async () => {
         clearChart();
-        await loadChart(data);
+        await loadChart(microData);
+        setActiveView('viewMicroBtn');
     });
 
-    clearBtn.addEventListener('click', async () => {
+    macroBtn.addEventListener('click', async () => {
         clearChart();
+        await loadMacroChart(macroData);
+        setActiveView('viewMacroBtn');
+    });
+
+    clearBtn.addEventListener('click', () => {
+        clearChart();
+        setActiveView(null);
     });
 }
 
@@ -30,8 +45,7 @@ window.onload = async () => {
     await taxiGreen.init();
     await taxiGreen.loadTaxi(2);
 
-    // 3. Query normalizadora: junta os dois datasets garantindo metade de cada cor
-    const sql = `
+    const microSql = `
         (SELECT
             'yellow' AS taxi_color,
             trip_distance,
@@ -54,10 +68,25 @@ window.onload = async () => {
             trip_distance > 0 AND tip_amount > 0
         LIMIT 150)
     `;
-    
-    // Como a conexão do DuckDB é compartilhada, podemos rodar a query a partir de qualquer instância
-    const data = await taxiYellow.query(sql);
-    console.log("Dados normalizados carregados:", data);
 
-    callbacks(data);
+    const macroSql = `
+        SELECT 'yellow' AS taxi_color, SUM(tip_amount) AS total_tips
+        FROM taxi_yellow_2023
+        WHERE tip_amount > 0
+
+        UNION ALL
+
+        SELECT 'green' AS taxi_color, SUM(tip_amount) AS total_tips
+        FROM taxi_green_2023
+        WHERE tip_amount > 0;
+    `;
+
+    const microData = await taxiYellow.query(microSql);
+    const macroData = await taxiYellow.query(macroSql);
+    console.log("Dados micro carregados:", microData);
+    console.log("Dados macro carregados:", macroData);
+
+    setupViewButtons(microData, macroData);
+    await loadChart(microData);
+    setActiveView('viewMicroBtn');
 };
