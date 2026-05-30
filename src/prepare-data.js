@@ -50,7 +50,6 @@ async function main() {
     try {
         console.log(`Mapeando arquivos Parquet (Green: ${greenFiles.length}, Yellow: ${yellowFiles.length})...`);
         
-        // Construção de subqueries dinâmicas baseadas na existência de arquivos de cada tipo
         let unionQueries = [];
 
         if (yellowFiles.length > 0) {
@@ -58,6 +57,7 @@ async function main() {
             unionQueries.push(`
                 SELECT 
                     tpep_pickup_datetime::TIMESTAMP as pickup_time,
+                    'yellow' as tipo_taxi,
                     trip_distance,
                     fare_amount,
                     tip_amount
@@ -70,6 +70,7 @@ async function main() {
             unionQueries.push(`
                 SELECT 
                     lpep_pickup_datetime::TIMESTAMP as pickup_time,
+                    'green' as tipo_taxi,
                     trip_distance,
                     fare_amount,
                     tip_amount
@@ -77,7 +78,6 @@ async function main() {
             `);
         }
 
-        // Junção das estruturas via UNION ALL dentro da View unificada
         const viewQuery = `
             CREATE OR REPLACE VIEW v_raw_trips AS 
             ${unionQueries.join(' UNION ALL ')}
@@ -90,6 +90,7 @@ async function main() {
             CREATE OR REPLACE TABLE t_cleaned_trips AS
             SELECT 
                 pickup_time,
+                tipo_taxi,
                 EXTRACT(year FROM pickup_time) as ano,
                 EXTRACT(month FROM pickup_time) as mes,
                 EXTRACT(day FROM pickup_time) as dia,
@@ -99,31 +100,37 @@ async function main() {
                 fare_amount,
                 (fare_amount + tip_amount) as total_pago
             FROM v_raw_trips
-            WHERE pickup_time BETWEEN '2020-01-01' AND '2026-12-31'
-              AND fare_amount > 0 
-              AND trip_distance > 0;
+            WHERE pickup_time BETWEEN '2022-01-01' AND '2024-12-31'
+              AND fare_amount >= 2.50 -- Bandeirada mínima de NY
+              AND trip_distance > 0.1 -- Ignorar viagens de 0 milhas ou erros de GPS
+              AND trip_distance < 100 -- Limpar outliers absurdos de distância
+              AND fare_amount < 500;  -- Limpar outliers de erro de cobrança
         `);
 
         console.log('Exportando agregação para o Heatmap Temporal...');
         const heatmapCsv = path.join(PROCESSED_DIR, 'hourly_pattern.csv').replace(/\\/g, '/');
+        
+        // CORREÇÃO: Trocado LINE_FEED por NEW_LINE para o DuckDB aceitar
         await runQuery(`
             COPY (
                 SELECT 
                     ano,
-                    dia_semana,
+                    mes,
+                    tipo_taxi,
+                    Lower(Trim(dia_semana)) as dia_semana,
                     hora,
                     COUNT(*) as volume,
                     ROUND(AVG(fare_amount), 2) as tarifa_media,
                     ROUND(AVG(trip_distance), 2) as distancia_media
                 FROM t_cleaned_trips
-                GROUP BY ano, dia_semana, hora
-                ORDER BY ano, 
-                         CASE dia_semana 
-                            WHEN 'Monday' THEN 1 WHEN 'Tuesday' THEN 2 WHEN 'Wednesday' THEN 3 
-                            WHEN 'Thursday' THEN 4 WHEN 'Friday' THEN 5 WHEN 'Saturday' THEN 6 WHEN 'Sunday' THEN 7 
+                GROUP BY ano, mes, tipo_taxi, dia_semana, hora
+                ORDER BY ano, mes, 
+                         CASE Lower(Trim(dia_semana)) 
+                            WHEN 'monday' THEN 1 WHEN 'tuesday' THEN 2 WHEN 'wednesday' THEN 3 
+                            WHEN 'thursday' THEN 4 WHEN 'friday' THEN 5 WHEN 'saturday' THEN 6 WHEN 'sunday' THEN 7 
                          END, 
                          hora
-            ) TO '${heatmapCsv}' WITH (HEADER, DELIMITER ',');
+            ) TO '${heatmapCsv}' WITH (HEADER, DELIMITER ',', FORCE_QUOTE *, NEW_LINE '\n');
         `);
 
         console.log('Exportando agregação para a Série Temporal...');
@@ -134,14 +141,15 @@ async function main() {
                     CAST(pickup_time AS DATE) as data,
                     ano,
                     mes,
-                    dia_semana,
+                    tipo_taxi,
+                    Lower(Trim(dia_semana)) as dia_semana,
                     COUNT(*) as volume,
                     ROUND(SUM(fare_amount), 2) as faturamento_total,
                     ROUND(AVG(trip_distance), 2) as distancia_media
                 FROM t_cleaned_trips
-                GROUP BY CAST(pickup_time AS DATE), ano, mes, dia_semana
+                GROUP BY CAST(pickup_time AS DATE), ano, mes, tipo_taxi, dia_semana
                 ORDER BY data
-            ) TO '${timeseriesCsv}' WITH (HEADER, DELIMITER ',');
+            ) TO '${timeseriesCsv}' WITH (HEADER, DELIMITER ',', FORCE_QUOTE *, NEW_LINE '\n');
         `);
 
         console.log('Processamento concluído com sucesso!');
