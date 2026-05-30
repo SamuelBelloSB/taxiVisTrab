@@ -482,3 +482,84 @@ export function loadComparisonSeries(data, selector) {
                 `);
         });
 }
+/**
+ * GRÁFICO DO SAMUEL: Matriz de Adjacência com Canal de Velocidade
+ */
+export async function loadAdjacencyMatrix(rawData, selector, margens = { left: 60, right: 25, top: 10, bottom: 80 }) {
+    const svg = d3.select(selector);
+    if (!svg.node()) return;
+
+    const rectDim = svg.node().getBoundingClientRect();
+    const svgWidth = rectDim.width || 800;
+    const svgHeight = rectDim.height || 450;
+    const tooltip = getTooltip();
+
+    svg.selectAll('*').remove();
+
+    const map = new Map();
+    let globalMaxVolume = 0;
+
+    for (const r of rawData) {
+        const key = `${r.pu}|${r.do_loc}`;
+        const volume = Number(r.volume) || 0;
+        const avg_speed = r.avg_speed === null || r.avg_speed === undefined ? null : Number(r.avg_speed);
+
+        if (!map.has(key)) {
+            map.set(key, {
+                pu: r.pu, do: r.do_loc, totalVolume: 0, speedWeightSum: 0, speedWeightCount: 0,
+                fleetCounts: {}
+            });
+        }
+
+        const entry = map.get(key);
+        entry.totalVolume += volume;
+        if (avg_speed) {
+            entry.speedWeightSum += avg_speed * volume;
+            entry.speedWeightCount += volume;
+        }
+        entry.fleetCounts[r.tipo_taxi] = (entry.fleetCounts[r.tipo_taxi] || 0) + volume;
+        if (entry.totalVolume > globalMaxVolume) globalMaxVolume = entry.totalVolume;
+    }
+
+    const aggregated = Array.from(map.values()).map(d => {
+        return { ...d, avg_speed: d.speedWeightCount > 0 ? d.speedWeightSum / d.speedWeightCount : null };
+    });
+
+    const originTotals = new Map();
+    const destTotals = new Map();
+    aggregated.forEach(d => {
+        originTotals.set(d.pu, (originTotals.get(d.pu) || 0) + d.totalVolume);
+        destTotals.set(d.do, (destTotals.get(d.do) || 0) + d.totalVolume);
+    });
+
+    const origins = Array.from(originTotals.entries()).sort((a,b)=>b[1]-a[1]).map(d=>d[0]);
+    const destinations = Array.from(destTotals.entries()).sort((a,b)=>b[1]-a[1]).map(d=>d[0]);
+
+    const matrixGroup = svg.append('g').attr('transform', `translate(${margens.left}, ${margens.top})`);
+
+    const width = svgWidth - margens.left - margens.right;
+    const height = svgHeight - margens.top - margens.bottom;
+
+    const xBand = d3.scaleBand().domain(destinations).range([0, width]).padding(0.20);
+    const yBand = d3.scaleBand().domain(origins).range([0, height]).padding(0.20);
+
+    const colorScale = d3.scaleSequential(d3.interpolateRdYlGn).domain([5, 30]);
+    const opacityScale = d3.scaleLinear().domain([0, globalMaxVolume || 1]).range([0.35, 1]);
+
+    matrixGroup.selectAll('.cell').data(aggregated).join('rect')
+        .attr('class','cell')
+        .attr('x', d => xBand(d.do))
+        .attr('y', d => yBand(d.pu))
+        .attr('width', xBand.bandwidth()).attr('height', yBand.bandwidth())
+        .attr('fill', d => d.avg_speed ? colorScale(d.avg_speed) : '#eee')
+        .attr('opacity', d => opacityScale(d.totalVolume))
+        .on('mouseover', (event, d) => {
+            tooltip.style('display', 'block').html(`
+                <b>Rota:</b> ${d.pu} → ${d.do}<br/>
+                <b>Volume:</b> ${d.totalVolume} viagens<br/>
+                <b>Velocidade:</b> ${d.avg_speed ? d.avg_speed.toFixed(1) + ' mph' : 'N/A'}
+            `);
+        })
+        .on('mousemove', (event) => tooltip.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY - 10) + 'px'))
+        .on('mouseout', () => tooltip.style('display', 'none'));
+}

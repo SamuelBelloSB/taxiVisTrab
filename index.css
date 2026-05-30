@@ -315,6 +315,26 @@ h2 {
   margin-top: 5px;
 }
 
+.view-tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.view-btn {
+    padding: 8px 14px;
+    border: 1px solid #999;
+    background-color: #f5f5f5;
+    cursor: pointer;
+    border-radius: 6px;
+    font-size: 1em;
+}
+
+.view-btn.active {
+    background-color: #dcdcdc;
+    font-weight: 700;
+}
+
 svg {
   background-color: #f1ede4; /* Fundo creme denso para reduzir o brilho e aumentar contraste */
   border: 1px solid #d4c3a3;

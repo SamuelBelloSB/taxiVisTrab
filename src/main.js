@@ -1,5 +1,5 @@
 import { Taxi } from "./taxi.js";
-import { loadChart, loadHeatmap, loadRidgePlot, loadTimeSeries, loadKPITable, loadComparisonSeries } from './plot.js';
+import { loadChart, loadHeatmap, loadRidgePlot, loadTimeSeries, loadKPITable, loadComparisonSeries, loadAdjacencyMatrix } from './plot.js';
 import * as d3 from 'd3';
 
 let cacheDadosHeatmap = [];
@@ -79,12 +79,21 @@ const UIManager = {
 /**
  * Overview Manager: Renderiza os gráficos de resumo no topo
  */
-function renderOverview() {
+async function renderOverview(taxiInstance) {
     const container = document.getElementById('overview-container');
     container.innerHTML = `
         <h2>Sumário Executivo do Mercado</h2>
         <div id="kpi-table-container"></div>
-        <div class="chart-box" style="margin-top:15px; height:350px; width:100%;">
+
+        <div class="charts-grid" style="margin-top: 20px;">
+             <div class="chart-box" style="height:450px; flex: 1.5;">
+                <h3>Matriz de Fluxo: Origem vs Destino</h3>
+                <div class="pattern-subtitle">Top rotas por volume. Cor indica velocidade média (Canal de Velocidade).</div>
+                <svg id="adjacency-matrix"></svg>
+            </div>
+        </div>
+
+        <div class="chart-box" style="margin-top:20px; height:350px; width:100%;">
             <h3>Tendência Comparativa: Volume vs. Faturamento (2022-2024)</h3>
             <svg id="comparison-series"></svg>
         </div>
@@ -128,6 +137,22 @@ function renderOverview() {
         console.log("Amostra Agregação Mensal (Comparativo):", dadosMensais.filter(d => d.tipo_taxi === 'green').slice(0, 3));
         loadComparisonSeries(dadosMensais, '#comparison-series');
     }
+
+    // Gráfico do Samuel adaptado para o fluxo do Danilo
+    const adjacencySql = `
+        SELECT 
+            pu, do_loc, tipo_taxi, COUNT(*) as volume,
+            AVG(CASE WHEN date_diff('second', pickup_datetime, dropoff_datetime) > 0 
+                THEN trip_distance / (date_diff('second', pickup_datetime, dropoff_datetime)/3600.0) 
+                ELSE NULL END) as avg_speed
+        FROM taxi_trips
+        WHERE pu IS NOT NULL AND do_loc IS NOT NULL
+        GROUP BY pu, do_loc, tipo_taxi
+        HAVING COUNT(*) > 20
+        ORDER BY volume DESC LIMIT 60
+    `;
+    const adjData = await taxiInstance.query(adjacencySql);
+    loadAdjacencyMatrix(adjData, '#adjacency-matrix');
 }
 
 const DataProcessor = {
@@ -190,7 +215,7 @@ window.onload = async () => {
     globalScatterData = await fetchScatterData(taxi);
     await fetchCSVData();
     
-    renderOverview();
+    await renderOverview(taxi);
     orchestratePlots(globalScatterData);
     renderFooter();
 };
