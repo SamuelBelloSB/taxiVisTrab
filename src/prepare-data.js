@@ -107,6 +107,10 @@ async function main() {
               AND fare_amount < 500;  -- Limpar outliers de erro de cobrança
         `);
 
+        console.log('Verificando contagem por frota na tabela limpa:');
+        const stats = await new Promise((res, rej) => con.all("SELECT tipo_taxi, count(*) as total FROM t_cleaned_trips GROUP BY tipo_taxi", (err, rows) => err ? rej(err) : res(rows)));
+        stats.forEach(s => console.log(`   -> ${s.tipo_taxi}: ${s.total} registros`));
+
         console.log('Exportando agregação para o Heatmap Temporal...');
         const heatmapCsv = path.join(PROCESSED_DIR, 'hourly_pattern.csv').replace(/\\/g, '/');
         

@@ -1,5 +1,5 @@
 import { Taxi } from "./taxi.js";
-import { loadChart, loadHeatmap, loadRidgePlot, loadTimeSeries, loadDonut, loadComparisonSeries } from './plot.js';
+import { loadChart, loadHeatmap, loadRidgePlot, loadTimeSeries, loadKPITable, loadComparisonSeries } from './plot.js';
 import * as d3 from 'd3';
 
 let cacheDadosHeatmap = [];
@@ -14,6 +14,7 @@ let selectedYear = 2022; // Padrão conforme solicitado
 const cleanStr = (str) => (str || "").replace(/["']/g, "").trim();
 
 const nomesMeses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const nomesQuadrimestres = ["1º Quadrimestre (Jan-Abr)", "2º Quadrimestre (Mai-Ago)", "3º Quadrimestre (Set-Dez)"];
 
 /**
  * UI Manager: Responsável pela manipulação dinâmica do DOM
@@ -50,6 +51,10 @@ const UIManager = {
                     <div class="chart-box"><h3>Distância vs Gorjeta</h3><svg id="scatter-${tipo}"></svg></div>
                     <div class="chart-box"><h3>Série Histórica Consolidada</h3><svg id="series-${tipo}"></svg></div>
                 </div>
+                <div class="pattern-header-container">
+                    <div class="pattern-header">Padrão Temporal de Demanda</div>
+                    <div class="pattern-subtitle">Densidade de viagens por hora e dia da semana (Consolidado por quadrimestre em ${selectedYear})</div>
+                </div>
                 <div class="monthly-grid" id="grid-${tipo}"></div>
             `;
             container.appendChild(section);
@@ -59,12 +64,12 @@ const UIManager = {
                 btn.onclick = (e) => updateGlobalYear(parseInt(e.target.dataset.year));
             });
 
-            // Cria os slots para os 12 heatmaps mensais
+            // Cria os slots para os 3 heatmaps quadrimestrais
             const grid = document.getElementById(`grid-${tipo}`);
-            for (let m = 1; m <= 12; m++) {
+            for (let q = 1; q <= 3; q++) {
                 const box = document.createElement('div');
                 box.className = 'chart-box small';
-                box.innerHTML = `<h5>${nomesMeses[m-1]}</h5><svg id="heatmap-${tipo}-${m}"></svg>`;
+                box.innerHTML = `<h5>${nomesQuadrimestres[q-1]}</h5><svg id="heatmap-${tipo}-q${q}"></svg>`;
                 grid.appendChild(box);
             }
         });
@@ -77,36 +82,50 @@ const UIManager = {
 function renderOverview() {
     const container = document.getElementById('overview-container');
     container.innerHTML = `
-        <h2>Visão Geral do Mercado (Market Share & Eficiência)</h2>
-        <div class="overview-grid">
-            <div class="chart-box"><h3>Faturamento 2022</h3><svg id="donut-2022"></svg></div>
-            <div class="chart-box"><h3>Faturamento 2023</h3><svg id="donut-2023"></svg></div>
-            <div class="chart-box"><h3>Faturamento 2024</h3><svg id="donut-2024"></svg></div>
-        </div>
-        <div class="chart-box" style="margin-top:15px; height:300px;">
-            <h3>Tendência Comparativa: Volume de Viagens Mensais (Yellow vs Green)</h3>
+        <h2>Sumário Executivo do Mercado</h2>
+        <div id="kpi-table-container"></div>
+        <div class="chart-box" style="margin-top:15px; height:350px; width:100%;">
+            <h3>Tendência Comparativa: Volume vs. Faturamento (2022-2024)</h3>
             <svg id="comparison-series"></svg>
         </div>
     `;
 
-    const anos = [2022, 2023, 2024];
-    anos.forEach(ano => {
-        const dataAno = cacheDadosSerie.filter(d => d.ano === ano);
-        const faturamento = d3.rollup(dataAno, v => d3.sum(v, d => d.faturamento_total), d => d.tipo_taxi);
-        const donutData = Array.from(faturamento, ([key, value]) => ({ key, value }));
-        loadDonut(donutData, `#donut-${ano}`, ano.toString());
-    });
+    if (cacheDadosSerie.length === 0) return;
+
+    const years = [2022, 2023, 2024];
+    const kpiData = years.map(ano => ({
+        label: `Ano ${ano}`,
+        stats: d3.rollups(cacheDadosSerie.filter(d => d.ano === ano), 
+            v => ({
+                faturamento: d3.sum(v, d => d.faturamento_total),
+                volume: d3.sum(v, d => d.volume)
+            }), d => d.tipo_taxi)
+    }));
+
+    const statsTotal = d3.rollups(cacheDadosSerie, v => ({
+        faturamento: d3.sum(v, d => d.faturamento_total),
+        volume: d3.sum(v, d => d.volume)
+    }), d => d.tipo_taxi);
+    
+    kpiData.push({ label: 'Total Triênio', stats: statsTotal, highlighted: true });
+
+    loadKPITable(kpiData, '#kpi-table-container');
 
     // Agregação mensal consolidada para o gráfico de tendência comparativa
     if (cacheDadosSerie.length > 0) {
         const dadosMensais = d3.rollups(
             cacheDadosSerie,
-            v => d3.sum(v, d => d.volume),
+            v => ({
+                volume: d3.sum(v, d => d.volume),
+                faturamento: d3.sum(v, d => d.faturamento_total)
+            }),
             d => d.tipo_taxi,
             d => d3.timeMonth(d.data)
         ).flatMap(([tipo, meses]) => 
-            meses.map(([mes, volume]) => ({ tipo_taxi: tipo, data: mes, volume }))
+            meses.map(([mes, val]) => ({ tipo_taxi: tipo, data: mes, volume: val.volume, faturamento: val.faturamento }))
         );
+        
+        console.log("Amostra Agregação Mensal (Comparativo):", dadosMensais.filter(d => d.tipo_taxi === 'green').slice(0, 3));
         loadComparisonSeries(dadosMensais, '#comparison-series');
     }
 }
@@ -127,24 +146,37 @@ function orchestratePlots(dataScatter) {
     const heatmapFiltrado = cacheDadosHeatmap.filter(d => d.ano === selectedYear);
     const serieFiltrada = cacheDadosSerie.filter(d => d.data.getFullYear() === selectedYear);
 
-    // Otimização: Escala global de volume para o ano atual
-    const globalMaxVolume = d3.max(heatmapFiltrado, d => d.volume) || 1;
+    // Agregação por Quadrimestre (Consolida 4 meses em cada bloco)
+    const dadosQuadrimestrais = d3.rollups(
+        heatmapFiltrado,
+        v => d3.sum(v, d => d.volume),
+        d => d.tipo_taxi,
+        d => Math.floor((d.mes - 1) / 4) + 1, // Calcula o Quadrimestre (1 a 3)
+        d => d.dia_semana,
+        d => d.hora
+    ).flatMap(([tipo, periods]) => 
+        periods.flatMap(([q, dias]) => 
+            dias.flatMap(([dia, horas]) => 
+                horas.map(([hora, volume]) => ({ tipo_taxi: tipo, quarter: q, dia_semana: dia, hora, volume }))
+            )
+        )
+    );
 
-    // Agrupamento eficiente para evitar múltiplos .filter()
-    const groupedData = d3.group(heatmapFiltrado, d => d.tipo_taxi, d => d.mes);
+    // Otimização: Escala global de volume para o ano atual
+    const globalMaxVolume = d3.max(dadosQuadrimestrais, d => d.volume) || 1;
+
+    const groupedData = d3.group(dadosQuadrimestrais, d => d.tipo_taxi, d => d.quarter);
 
     frotas.forEach(tipo => {
         const scatterData = (dataScatter || []).filter(d => d.tipo_taxi === tipo && Number(d.ano) === selectedYear);
         loadChart(scatterData, `#scatter-${tipo}`);
-        loadTimeSeries(serieFiltrada, `#series-${tipo}`);
+        const serieDaFrota = serieFiltrada.filter(d => d.tipo_taxi === tipo);
+        loadTimeSeries(serieDaFrota, `#series-${tipo}`);
 
-        const dataByMonth = groupedData.get(tipo);
-        for (let m = 1; m <= 12; m++) {
-            const dadosMes = dataByMonth ? dataByMonth.get(m) || [] : [];
-            if (dadosMes.length > 0) {
-                // Passamos o globalMaxVolume para manter a consistência visual
-                loadHeatmap(dadosMes, `#heatmap-${tipo}-${m}`, { left: 40, right: 10, top: 20, bottom: 30 }, globalMaxVolume);
-            }
+        const dataByQ = groupedData.get(tipo);
+        for (let q = 1; q <= 3; q++) {
+            const dadosQ = dataByQ ? dataByQ.get(q) || [] : [];
+            loadHeatmap(dadosQ, `#heatmap-${tipo}-q${q}`, { left: 40, right: 45, top: 20, bottom: 45 }, globalMaxVolume);
         }
     });
 }
@@ -160,7 +192,47 @@ window.onload = async () => {
     
     renderOverview();
     orchestratePlots(globalScatterData);
+    renderFooter();
 };
+
+/**
+ * Renderiza as informações institucionais e referências
+ */
+function renderFooter() {
+    const mainContainer = document.querySelector('.main-container');
+    if (!mainContainer || document.getElementById('inst-footer')) return;
+
+    const footer = document.createElement('footer');
+    footer.id = 'inst-footer';
+    footer.className = 'dashboard-footer';
+    footer.innerHTML = `
+        <div class="footer-info">
+            <div class="footer-column">
+                <h4>Instituição</h4>
+                <p>Universidade Federal Fluminense (UFF)<br>
+                Instituto de Computação<br>
+                Disciplina: Visualização de Dados 2026.1</p>
+            </div>
+            <div class="footer-column">
+                <h4>Desenvolvedores</h4>
+                <p>Danilo Silva<br>
+                Samuel Bello</p>
+            </div>
+            <div class="footer-column">
+                <h4>Referências e Fontes</h4>
+                <p>
+                    <strong>Dataset:</strong> <a href="https://www.nyc.gov/site/tlc/about/tlc-trip-record-data.page" target="_blank">NYC TLC Trip Record Data</a><br>
+                    <strong>Artigo Base:</strong> <a href="https://ieeexplore.ieee.org/document/6634127/" target="_blank">TaxiVis: A Visual Analytics System</a><br>
+                    <strong>Repositório:</strong> <a href="https://github.com/SamuelBelloSB/taxiVisTrab.git" target="_blank">GitHub Project</a>
+                </p>
+            </div>
+        </div>
+        <div style="text-align: center; font-size: 0.75em; color: #d4c3a3; margin-top: 10px;">
+            Trabalho acadêmico desenvolvido para fins de estudo e análise de fluxos urbanos.
+        </div>
+    `;
+    mainContainer.appendChild(footer);
+}
 
 async function fetchScatterData(taxiInstance) {
     let dataScatter = [];
@@ -195,12 +267,12 @@ async function fetchCSVData() {
             return {
                 ano: Number(cleanStr(d.ano)),
                 mes: Number(cleanStr(d.mes)),
-                tipo_taxi: cleanStr(d.tipo_taxi).toLowerCase() || 'yellow',
+                tipo_taxi: cleanStr(d.tipo_taxi).toLowerCase(),
                 hora: Number(cleanStr(d.hora)),
                 volume: Number(cleanStr(d.volume)),
                 dia_semana: cleanStr(d.dia_semana).toLowerCase()
             };
-        });
+        }).filter(d => d.ano >= 2022 && d.ano <= 2024);
 
         const resSerie = await fetch('/processed/daily_timeseries.csv');
         const textSerie = await resSerie.text();
@@ -208,12 +280,17 @@ async function fetchCSVData() {
             return {
                 data: d3.timeParse("%Y-%m-%d")(cleanStr(s.data)),
                 ano: Number(cleanStr(s.ano)),
-                tipo_taxi: cleanStr(s.tipo_taxi).toLowerCase() || 'yellow',
+                tipo_taxi: cleanStr(s.tipo_taxi).toLowerCase(),
                 volume: Number(cleanStr(s.volume)),
                 faturamento_total: Number(cleanStr(s.faturamento_total)),
                 distancia_media: Number(cleanStr(s.distancia_media))
             };
-        }).filter(s => s.data !== null);
+        }).filter(s => s.data !== null && s.ano >= 2022 && s.ano <= 2024);
+
+        // Debug para verificar se os dados verdes existem no dataset carregado
+        const checkFrotas = d3.rollup(cacheDadosSerie, v => d3.sum(v, d => d.volume), d => d.tipo_taxi);
+        console.log("Registros por frota carregados:", checkFrotas);
+        
     } catch (e) {
         console.error("Erro CSV:", e);
     }
@@ -228,7 +305,12 @@ function setupSidebar() {
     }
 }
 
-function updateGlobalYear(year) {
+async function updateGlobalYear(year) {
+    if (selectedYear === year) return;
+    document.body.style.cursor = 'wait'; // Feedback visual de processamento
     selectedYear = year;
+    // Aguarda um pequeno frame para o cursor atualizar antes de travar a thread
+    await new Promise(r => setTimeout(r, 10));
     orchestratePlots(globalScatterData);
+    document.body.style.cursor = 'default';
 }

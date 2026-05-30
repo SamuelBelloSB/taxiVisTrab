@@ -16,28 +16,33 @@ export class Taxi {
 
         const files = [];
         const cores = ['green', 'yellow'];
+        const fetchPromises = [];
 
-        // Registra os buffers de arquivos individualmente
         for (const year of years) {
             for (const cor of cores) {
                 for (let id = 1; id <= monthsPerYear; id++) {
                     const sId = String(id).padStart(2, '0');
                     const key = `Y${year}M${sId}_${cor}`;
-                    const url = `/${cor}/${cor}_tripdata_${year}-${sId}.parquet`; // URL absoluta para o Vite
+                    const url = `/${cor}/${cor}_tripdata_${year}-${sId}.parquet`;
 
-                    try {
-                        const res = await fetch(url, { method: 'HEAD' }); // Verifica existência primeiro
-                        if (!res.ok) throw new Error();
-                        const dataRes = await fetch(url);
-                        const buffer = await dataRes.arrayBuffer();
-                        await this.db.registerFileBuffer(key, new Uint8Array(buffer));
-                        files.push({ key, cor });
-                    } catch (e) {
-                        console.warn(`Não foi possível carregar: ${url}`);
-                    }
+                    fetchPromises.push(
+                        fetch(url)
+                            .then(async (res) => {
+                                if (!res.ok) return null;
+                                const buffer = await res.arrayBuffer();
+                                await this.db.registerFileBuffer(key, new Uint8Array(buffer));
+                                return { key, cor };
+                            })
+                            .catch(() => null)
+                    );
                 }
             }
         }
+
+        const results = await Promise.all(fetchPromises);
+        results.forEach(res => {
+            if (res) files.push(res);
+        });
 
         await this.conn.query(`DROP TABLE IF EXISTS ${this.table}`);
 

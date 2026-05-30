@@ -132,16 +132,9 @@ h2 {
   gap: 15px;
   margin-bottom: 20px;
   padding: 20px;
-  background: #ffffff;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(67, 52, 34, 0.08);
+  background: transparent; /* Remove o grande bloco branco de fundo */
+  border-bottom: 2px solid #d4c3a3; /* Usa apenas uma linha divisória */
   border: none;
-}
-
-.overview-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
 }
 
 /* Remove o visual de "caixa dentro de caixa" no overview */
@@ -150,6 +143,64 @@ h2 {
   border: none;
   box-shadow: none;
   padding: 0;
+}
+
+.kpi-table-wrapper {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 10px;
+  border: 1px solid #d4c3a3; /* Troca sombra por borda sutil */
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 20px;
+}
+
+.kpi-table-row {
+  display: grid;
+  grid-template-columns: 150px repeat(3, 1fr) 1.2fr;
+  align-items: center;
+  gap: 15px;
+  padding: 8px 15px;
+  border-radius: 6px;
+}
+
+.kpi-table-row.header {
+  font-weight: bold;
+  color: #5b6346;
+  border-bottom: 2px solid #f7f3f0;
+  margin-bottom: 5px;
+  text-transform: uppercase;
+  font-size: 0.85em;
+}
+
+.kpi-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi-cell .val {
+  font-weight: 600;
+  font-size: 1.1em;
+}
+
+.kpi-cell .sub {
+  font-size: 0.75em;
+  color: #8b7d6b;
+}
+
+.total-col {
+  background: #fdfbf7;
+  border-radius: 4px;
+  padding: 4px;
+}
+
+.fleet-name {
+  font-size: 0.85em;
+  font-weight: bold;
+  letter-spacing: 0.5px;
 }
 
 .overview-section h2 {
@@ -167,7 +218,7 @@ h2 {
 
 .monthly-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr); /* 4 meses por linha */
+  grid-template-columns: repeat(3, 1fr); /* Ajustado para 3 quadrimestres */
   gap: 15px;
   width: 100%;
   margin-top: 15px;
@@ -210,11 +261,9 @@ h2 {
 
 /* Moldura elegante para conter cada SVG e seu título */
 .chart-box {
-  background-color: #ffffff;
-  border: 1px solid #dcd3c9;
-  border-radius: 12px;
+  background-color: transparent; /* Remove a caixa branca repetitiva */
+  border: none; /* Remove a borda da caixa externa */
   padding: 15px;
-  box-shadow: 0 4px 10px rgba(67, 52, 34, 0.05);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -225,6 +274,28 @@ h2 {
   margin: 0 0 10px 0;
   font-size: 1.1em;
   color: #6b705c;
+}
+
+.pattern-header-container {
+  width: 100%;
+  margin-top: 40px;
+  text-align: center;
+  border-top: 2px solid #d4c3a3;
+  padding-top: 20px;
+}
+
+.pattern-header {
+  font-size: 1.2em;
+  font-weight: bold;
+  color: #5b6346;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.pattern-subtitle {
+  font-size: 0.9em;
+  color: #8c7851;
+  margin-bottom: 10px;
 }
 
 .legend {
@@ -315,6 +386,83 @@ button:hover {
 .donut-center-text {
   font-size: 14px;
   fill: #5b6346;
+}
+
+/* Suporte para os novos cards de KPI */
+.kpi-content {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.tooltip {
+  position: absolute;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #d4c3a3;
+  border-radius: 4px;
+  pointer-events: none;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  z-index: 2000;
+  display: none;
+  line-height: 1.4;
+}
+
+.tooltip-title {
+  font-weight: bold;
+  border-bottom: 1px solid #eee;
+  margin-bottom: 5px;
+  padding-bottom: 2px;
+  color: #5b6346;
+}
+
+.tooltip-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 15px;
+}
+
+/* Estilização do Rodapé Institucional */
+.dashboard-footer {
+  width: 100%;
+  margin-top: 50px;
+  padding: 30px;
+  border-top: 2px solid #d4c3a3;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  background-color: transparent; /* Mistura com o fundo da página */
+  box-sizing: border-box;
+}
+
+.footer-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 30px;
+}
+
+.footer-column h4 {
+  margin: 0 0 10px 0;
+  font-size: 0.9em;
+  color: #5b6346;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.footer-column p, .footer-column a {
+  font-size: 0.85em;
+  color: #8b7d6b;
+  line-height: 1.6;
+  text-decoration: none;
+}
+
+.footer-column a:hover {
+  color: #e69f00;
+  text-decoration: underline;
 }
 
 /* Ajuste para telas menores */
