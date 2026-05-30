@@ -5,7 +5,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const PROCESSED_DIR = path.join(__dirname, '../public/data/processed');
+const PROCESSED_DIR = path.join(__dirname, '../00 - data/processed');
 const HEATMAP_PATH = path.join(PROCESSED_DIR, 'hourly_pattern.csv');
 const TIMESERIES_PATH = path.join(PROCESSED_DIR, 'daily_timeseries.csv');
 

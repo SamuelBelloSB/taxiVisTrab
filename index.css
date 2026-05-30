@@ -1,48 +1,336 @@
 body {
-    margin: 20px;
+  margin: 0;
+  padding: 20px;
+  /* Inter/System Stack: Melhor legibilidade em monitores modernos */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-size: 16px; 
+  background-color: #f7f3f0; /* Tom areia claro */
+  color: #2a241e; /* Umber escuro para melhor contraste */
+  overflow-y: auto !important; /* Garante que a rolagem funcione se a tela encher */
+  scroll-behavior: smooth;
+}
 
-    font-family: 'Times New Roman', Times, serif;
-    font-size: 1.25em;
-  }
+.anchor-nav {
+  box-sizing: border-box;
+  position: fixed;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 220px;
+  background: #e9e0d2;
+  padding: 20px;
+  z-index: 1000;
+  border-right: 2px solid #d4c3a3;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  align-items: flex-start;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.05);
+  transition: width 0.3s ease;
+  overflow: hidden;
+}
+
+/* Estado do Menu Minimizado */
+.sidebar-minimized .anchor-nav {
+  width: 60px;
+  padding: 20px 10px;
+}
+
+.sidebar-minimized .nav-content, 
+.sidebar-minimized .anchor-nav span,
+.sidebar-minimized .back-to-top {
+  display: none;
+}
+
+.anchor-nav a {
+  text-decoration: none;
+  color: #8c7851; /* Dourado envelhecido */
+  font-weight: bold;
+  padding: 8px 12px;
+  border-radius: 4px;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.anchor-nav a:hover {
+  background: #dcd3c9;
+  padding-left: 15px;
+}
+
+.nav-content {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+}
+
+.anchor-nav span {
+  font-size: 0.8em;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #5b6346;
+  margin-bottom: 5px;
+  font-weight: bold;
+}
+
+#toggle-sidebar {
+  background: #5b6346;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  align-self: center;
+  margin-bottom: 20px;
+  font-size: 1.2rem;
+}
+
+.back-to-top {
+  margin-top: auto;
+  border-top: 1px solid #d4c3a3;
+  padding-top: 20px !important;
+  font-size: 0.9em;
+}
 
 .main-container {
-    height: 500px;
+  margin-left: 240px;
+  width: calc(100% - 280px);
+  max-width: 1700px;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+  transition: margin-left 0.3s ease, width 0.3s ease;
+}
 
-    display: flex;
-    background-color: #efefef;
+.sidebar-minimized .main-container {
+  margin-left: 80px;
+  width: calc(100% - 100px);
+}
 
-    flex-direction: column;
-    flex-wrap: nowrap;
-    justify-content: center; 
-    align-items: center; 
+h2 {
+  margin: 10px 0 5px 0;
+  color: #2c3e50;
+  text-align: center;
+}
+
+.overview-section {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 20px;
+  padding: 20px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(67, 52, 34, 0.08);
+  border: none;
+}
+
+.overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+/* Remove o visual de "caixa dentro de caixa" no overview */
+.overview-section .chart-box {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+}
+
+.overview-section h2 {
+  font-size: 1.3em;
+  color: #5b6346;
+  margin-bottom: 20px;
+}
+
+.timeline-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+  width: 100%;
+}
+
+.monthly-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr); /* 4 meses por linha */
+  gap: 15px;
+  width: 100%;
+  margin-top: 15px;
+}
+
+.chart-box.small h5 {
+  margin: 0 0 5px 0;
+  font-size: 0.9em;
+  color: #8c7851;
+  text-align: center;
+}
+
+.chart-box.small svg {
+  height: 200px; /* Heatmaps mensais mais compactos */
+}
+
+.year-block {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  scroll-margin-top: 20px;
+}
+
+.charts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Dois gráficos por linha */
+  gap: 20px;
+  width: 100%;
+}
+
+.year-header {
+  background: #5b6346; /* Musgo mais denso */
+  color: white;
+  padding: 15px;
+  border-radius: 8px;
+  font-size: 1.4em;
+  font-weight: bold;
+  text-align: center;
+}
+
+/* Moldura elegante para conter cada SVG e seu título */
+.chart-box {
+  background-color: #ffffff;
+  border: 1px solid #dcd3c9;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 4px 10px rgba(67, 52, 34, 0.05);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1; /* Faz os gráficos dividirem a largura da linha igualmente */
+}
+
+.chart-box h3 {
+  margin: 0 0 10px 0;
+  font-size: 1.1em;
+  color: #6b705c;
+}
+
+.legend {
+  margin-top: 10px;
+  font-size: 0.85em;
+  color: #8b7d6b;
+  text-align: center;
+  line-height: 1.4;
+  padding: 0 10px;
 }
 
 .buttom-container {
-    display: flex;
-
-    flex-direction: row;
-    flex-wrap: nowrap;
-    justify-content: center; 
-    align-items: center; 
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  margin-top: 5px;
 }
 
 svg {
-    margin: 10px;
-    background-color: #ffffff;
-
-    border-radius: 8px;
-    border: #bfbfbf solid 1px;
-
-    height: 400px;
-    width: 800px;
+  background-color: #f1ede4; /* Fundo creme denso para reduzir o brilho e aumentar contraste */
+  border: 1px solid #d4c3a3;
+  border-radius: 8px;
+  height: 340px;
+  width: 100%; /* Ajusta ao tamanho da coluna */
 }
 
-circle {
-    stroke: #006A71;
-    stroke-width: "3";
-    fill: #9ACBD0;
+/* Melhora legibilidade dos textos internos do SVG (D3 Axis Labels) */
+.tick text {
+  font-size: 12px;
+  color: #4b2c20;
+}
+
+svg text {
+  font-family: 'Inter', sans-serif;
+  font-size: 13px;
+}
+
+.chart-box.small svg {
+  height: 280px;
 }
 
 button {
-    margin: 10px;
+  margin: 5px;
+  padding: 6px 14px;
+  font-family: sans-serif;
+  font-size: 0.85em;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background-color: #ffffff;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background-color: #f1f5f9;
+}
+
+.year-selector-container {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin: 10px 0;
+  width: 100%;
+}
+
+.year-btn {
+  padding: 8px 20px;
+  font-weight: bold;
+  border: 1px solid #d4c3a3;
+  color: #5b6346;
+}
+
+.year-btn.active {
+  background-color: #5b6346;
+  color: #ffffff;
+  border-color: #5b6346;
+}
+
+/* Estilo para labels internos do Donut */
+.donut-label {
+  font-size: 11px;
+  font-weight: bold;
+  fill: #f7f3f0;
+  pointer-events: none;
+}
+
+.donut-center-text {
+  font-size: 14px;
+  fill: #5b6346;
+}
+
+/* Ajuste para telas menores */
+@media (max-width: 1024px) {
+  .anchor-nav {
+    position: relative;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    flex-wrap: wrap;
+    border-right: none;
+    border-bottom: 2px solid #d4c3a3;
+    padding: 20px;
+  }
+  .main-container {
+    margin-left: 0;
+    width: 100%;
+  }
 }

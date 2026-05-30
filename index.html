@@ -1,23 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>Carregamento dos Dados</title>
+    <title>Dashboard de Densidade de Mobilidade</title>
     <link rel="stylesheet" href="index.css">
 </head>
-
 <body>
+    <nav class="anchor-nav">
+        <button id="toggle-sidebar" title="Minimizar Menu">☰</button>
+        <div class="nav-content" id="dynamic-nav">
+            <span>Anos</span>
+        </div>
+        
+        <a href="#main-top" class="back-to-top">↑ Voltar ao Topo</a>
+    </nav>
+
     <div class="main-container">
-        <svg>
-        </svg>
-        <div class="buttom-container">
-            <button id="loadBtn">Load Chart</button>
-            <button id="clearBtn">Clear Chart</button>
+        <header id="main-top">
+            <h2>Dashboard Técnico - Fluxo de Táxis de NY</h2>
+        </header>
+
+        <!-- Visão Geral Comparativa (Fixa) -->
+        <div id="overview-container" class="overview-section">
+            <!-- Inserido via JavaScript -->
+        </div>
+        
+        <div class="timeline-wrapper" id="timeline-container">
+            <!-- Conteúdo Dinâmico Inserido via main.js -->
         </div>
     </div>
-
     <script type="module" src="src/main.js"></script>
 </body>
-
 </html>
