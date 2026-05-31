@@ -90,7 +90,7 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  align-self: center;
+  align-self: left;
   margin-bottom: 20px;
   font-size: 1.2rem;
 }
@@ -380,6 +380,15 @@ button:hover {
   justify-content: center;
   margin: 10px 0;
   width: 100%;
+}
+
+.matrix-years {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  width: 100%;
+  flex-wrap: wrap;
+  margin-top: 10px;
 }
 
 .year-btn {

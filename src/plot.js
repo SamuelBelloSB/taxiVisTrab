@@ -519,7 +519,7 @@ export function loadComparisonSeries(data, selector) {
 /**
  * GRÁFICO DO SAMUEL: Matriz de Adjacência com Canal de Velocidade
  */
-export async function loadAdjacencyMatrix(rawData, taxiColor = 'yellow', selector = '#adjacency-matrix', margens = { left: 70, right: 30, top: 45, bottom: 90 }) {
+export async function loadAdjacencyMatrix(rawData, taxiColor = 'yellow', selector = '#adjacency-matrix', margens = { left: 70, right: 30, top: 45, bottom: 90 }, title = null) {
     const svg = d3.select(selector);
     if (!svg.node()) return;
 
@@ -569,6 +569,18 @@ export async function loadAdjacencyMatrix(rawData, taxiColor = 'yellow', selecto
     const origins = Array.from(originTotals.entries()).sort((a,b)=>b[1]-a[1]).slice(0, 15).map(d=>d[0]);
     const destinations = Array.from(destTotals.entries()).sort((a,b)=>b[1]-a[1]).slice(0, 15).map(d=>d[0]);
 
+    // Adiciona título dinâmico se fornecido
+    if (title) {
+        svg.append('text')
+            .attr('x', svgWidth / 2)
+            .attr('y', 20)
+            .attr('text-anchor', 'middle')
+            .attr('font-size', '14px')
+            .attr('font-weight', 'bold')
+            .attr('fill', '#5b6346')
+            .text(title);
+    }
+
     const matrixGroup = svg.append('g').attr('transform', `translate(${margens.left}, ${margens.top})`);
 
     const width = svgWidth - margens.left - margens.right;
@@ -610,7 +622,7 @@ export async function loadAdjacencyMatrix(rawData, taxiColor = 'yellow', selecto
     const legendWidth = 140;
     const legendHeight = 8;
     const legendG = matrixGroup.append('g')
-        .attr('transform', `translate(${width - legendWidth}, -25)`);
+        .attr('transform', `translate(${width - legendWidth}, +250)`);
 
     const legendScale = d3.range(0, 1.1, 0.1);
     legendG.selectAll('.speed-rect')

@@ -95,6 +95,89 @@ export class Taxi {
         `);
     }
 
+    async loadTaxiForYear(year = 2023, monthsPerYear = 1) {
+        if (!this.db || !this.conn)
+            throw new Error('Database not initialized. Please call init() first.');
+
+        const files = [];
+        const cores = ['green', 'yellow'];
+        const fetchPromises = [];
+
+        for (const cor of cores) {
+            for (let id = 1; id <= monthsPerYear; id++) {
+                const sId = String(id).padStart(2, '0');
+                const key = `Y${year}M${sId}_${cor}`;
+                const url = `00%20-%20data/${cor}/${cor}_tripdata_${year}-${sId}.parquet`;
+
+                fetchPromises.push(
+                    fetch(url)
+                        .then(async (res) => {
+                            if (!res.ok) {
+                                console.warn(`Arquivo não encontrado: ${url}`);
+                                return null;
+                            }
+                            const ct = res.headers.get('content-type');
+                            if (ct && ct.includes('text/html')) {
+                                console.error(`Erro de rota: O servidor retornou HTML em vez de Parquet para: ${url}.`);
+                                return null;
+                            }
+                            const buffer = await res.arrayBuffer();
+                            const uint8 = new Uint8Array(buffer);
+                            if (uint8[0] === 0x50 && uint8[1] === 0x41 && uint8[2] === 0x52 && uint8[3] === 0x31) {
+                                await this.db.registerFileBuffer(key, uint8);
+                                return { key, cor, year };
+                            }
+                            console.error(`Arquivo inválido (não é Parquet): ${url}`);
+                            return null;
+                        })
+                        .catch(() => null)
+                );
+            }
+        }
+
+        const results = await Promise.all(fetchPromises);
+        results.forEach(res => {
+            if (res) files.push(res);
+        });
+
+        if (files.length === 0) {
+            console.warn(`Nenhum arquivo Parquet válido foi carregado para o ano ${year}.`);
+            return;
+        }
+
+        await this.conn.query(`DROP TABLE IF EXISTS ${this.table}`);
+
+        const selectQueries = files.map(f => {
+            const dataColuna = f.cor === 'green' ? 'lpep_pickup_datetime' : 'tpep_pickup_datetime';
+            const dropColuna = f.cor === 'green' ? 'lpep_dropoff_datetime' : 'tpep_dropoff_datetime';
+            return `
+                SELECT 
+                    ${dataColuna}::TIMESTAMP as pickup_datetime,
+                    ${dropColuna}::TIMESTAMP as dropoff_datetime,
+                    trip_distance::DOUBLE as trip_distance,
+                    tip_amount::DOUBLE as tip_amount,
+                    '${f.cor}' as tipo_taxi,
+                    PULocationID as pu,
+                    DOLocationID as do_loc
+                FROM read_parquet('${f.key}')
+                WHERE trip_distance > 0.1 
+                  AND fare_amount >= 2.50
+                  AND tip_amount IS NOT NULL
+            `;
+        }).join(' UNION ALL ');
+
+        try {
+            await this.conn.query(`
+                CREATE TABLE ${this.table} AS 
+                ${selectQueries}
+            `);
+            console.log(`Tabela ${this.table} criada com sucesso para o ano ${year}.`);
+        } catch (error) {
+            console.error(`Erro ao criar tabela para ano ${year}:`, error);
+            throw error;
+        }
+    }
+
     async query(sql) {
         if (!this.db || !this.conn)
             throw new Error('Database not initialized. Please call init() first.');

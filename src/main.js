@@ -15,6 +15,9 @@ const cleanStr = (str) => (str || "").replace(/["']/g, "").trim();
 
 const nomesMeses = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 const nomesQuadrimestres = ["1º Quadrimestre (Jan-Abr)", "2º Quadrimestre (Mai-Ago)", "3º Quadrimestre (Set-Dez)"];
+const MATRIX_FLEET_TYPES = ['yellow', 'green'];
+const getFleetLabel = tipo => tipo === 'yellow' ? 'Amarela' : 'Verde';
+const getMatrixHash = tipo => `#matriz-${tipo}`;
 
 /**
  * UI Manager: Responsável pela manipulação dinâmica do DOM
@@ -81,11 +84,17 @@ const UIManager = {
  */
 async function renderOverview(taxiInstance) {
     const container = document.getElementById('overview-container');
-    container.innerHTML = `
-        <div style="width: 100%; text-align: center; margin-bottom: 30px; border-bottom: 2px solid #5b6346; padding-bottom: 10px;">
-            <h1 style="color: #5b6346; margin: 0; font-size: 2.2em;">Fluxo de Táxis de NY (2022 — 2024)</h1>
-        </div>
+    const yearButtonsMarkup = AVAILABLE_YEARS.map(year => `
+        <button class="year-btn ${currentMatrixYear === year ? 'active' : ''}" data-year="${year}">${year}</button>
+    `).join('');
 
+    container.innerHTML = `
+        <div style="width: 100%; text-align: left; margin-bottom: 30px; border-bottom: 2px solid #5b6346; padding-bottom: 10px;">
+            <h1 style="color: #5b6346; margin: 0; font-size: 2.2em;">Fluxo de Táxis de NY</h1>
+        </div>
+        <div id="matrix-year-selector" class="year-selector-container">
+            ${yearButtonsMarkup}
+        </div>
         <div class="charts-grid" style="margin-top: 20px;">
             <div class="chart-box" style="height:520px;">
                 <h3 style="min-height: 2.5em; display: flex; align-items: center; text-align: center;">Matriz de Adjacências (Origem x Destino)</h3>
@@ -144,6 +153,9 @@ async function renderOverview(taxiInstance) {
 }
 
 const DEFAULT_MATRIX_HASH = '#matriz-yellow';
+let currentMatrixYear = 2023;
+const AVAILABLE_YEARS = [2022, 2023, 2024];
+
 
 function getMatrixColorFromHash(hash) {
     const normalized = (hash || '').toLowerCase();
@@ -177,6 +189,20 @@ function setTimelineVisible(visible) {
     if (timeline) timeline.style.display = visible ? '' : 'none';
 }
 
+function renderMatrixNavigation() {
+    const container = document.getElementById('matrix-tabs');
+    if (!container) return;
+    container.innerHTML = '';
+
+    MATRIX_FLEET_TYPES.forEach(tipo => {
+        const link = document.createElement('a');
+        link.dataset.hash = getMatrixHash(tipo);
+        link.href = getMatrixHash(tipo);
+        link.textContent = `Matriz ${getFleetLabel(tipo)}`;
+        container.appendChild(link);
+    });
+}
+
 function attachMatrixNavigation() {
     document.querySelectorAll('.matrix-tab').forEach(button => {
         button.addEventListener('click', () => {
@@ -185,37 +211,92 @@ function attachMatrixNavigation() {
     });
 }
 
+function attachYearSelector() {
+    const yearSelector = document.getElementById('matrix-year-selector');
+    if (!yearSelector) return;
+
+    yearSelector.querySelectorAll('.year-btn').forEach(button => {
+        button.addEventListener('click', async () => {
+            const selectedYear = parseInt(button.dataset.year);
+            if (selectedYear === currentMatrixYear) return;
+            
+            currentMatrixYear = selectedYear;
+            updateYearButtons(selectedYear);
+            
+            const hash = window.location.hash || DEFAULT_MATRIX_HASH;
+            const color = getMatrixColorFromHash(hash) || 'yellow';
+            await renderMatrixView(window.currentTaxiInstance, color);
+        });
+    });
+    
+    updateYearButtons(currentMatrixYear);
+}
+
+function updateYearButtons(activeYear) {
+    document.querySelectorAll('.year-btn').forEach(button => {
+        const btnYear = parseInt(button.dataset.year);
+        button.classList.toggle('active', btnYear === activeYear);
+    });
+}
+
+function showYearSelector(visible) {
+    const selector = document.getElementById('matrix-year-selector');
+    if (selector) selector.style.display = visible ? 'flex' : 'none';
+}
+
 async function renderMatrixView(taxiInstance, color) {
     if (!taxiInstance) return;
     const taxiColor = color === 'green' ? 'green' : 'yellow';
-    const tableName = taxiColor === 'green' ? 'taxi_green_2023' : 'taxi_yellow_2023';
-    const fallbackTable = 'taxi_trips';
-
-    const sql = (sourceTable) => `
-        SELECT 
-            pu, do_loc, COUNT(*) as volume,
-            AVG(CASE WHEN date_diff('second', pickup_datetime, dropoff_datetime) > 0 
-                THEN trip_distance / (date_diff('second', pickup_datetime, dropoff_datetime)/3600.0) 
-                ELSE NULL END) as avg_speed,
-            tipo_taxi
-        FROM ${sourceTable}
-        WHERE pu IS NOT NULL AND do_loc IS NOT NULL
-        GROUP BY pu, do_loc, tipo_taxi
-        HAVING COUNT(*) > 10
-        ORDER BY volume DESC
-        LIMIT 100
-    `;
 
     clearChart('#adjacency-matrix');
 
     try {
+        await taxiInstance.loadTaxiForYear(currentMatrixYear, 1);
+        
+        const tableName = `taxi_${taxiColor}_${currentMatrixYear}`;
+        const fallbackTable = 'taxi_trips';
+
+        const sql = (sourceTable) => `
+            SELECT 
+                pu, do_loc, COUNT(*) as volume,
+                AVG(CASE WHEN date_diff('second', pickup_datetime, dropoff_datetime) > 0 
+                    THEN trip_distance / (date_diff('second', pickup_datetime, dropoff_datetime)/3600.0) 
+                    ELSE NULL END) as avg_speed,
+                tipo_taxi
+            FROM ${sourceTable}
+            WHERE tipo_taxi = '${taxiColor}'
+                AND pu IS NOT NULL 
+                AND do_loc IS NOT NULL
+            GROUP BY pu, do_loc, tipo_taxi
+            HAVING COUNT(*) > 10
+            ORDER BY volume DESC
+            LIMIT 100
+        `;
+
         const adjData = await taxiInstance.query(sql(tableName));
-        await loadAdjacencyMatrix(adjData, taxiColor, '#adjacency-matrix');
+        const fleetLabel = getFleetLabel(taxiColor);
+        const title = `Matriz de Adjacência - Frota ${fleetLabel} (${currentMatrixYear})`;
+        await loadAdjacencyMatrix(adjData, taxiColor, '#adjacency-matrix', { left: 70, right: 30, top: 45, bottom: 90 }, title);
     } catch (error) {
-        console.warn(`Falha no carregamento da tabela ${tableName}, usando fallback ${fallbackTable}.`, error);
+        console.warn(`Falha ao carregar dados do ano ${currentMatrixYear}.`, error);
         try {
+            const fallbackTable = 'taxi_trips';
+            const sql = (sourceTable) => `
+                SELECT pu, do_loc, COUNT(*) as volume,
+                AVG(CASE WHEN date_diff('second', pickup_datetime, dropoff_datetime) > 0 
+                    THEN trip_distance / (date_diff('second', pickup_datetime, dropoff_datetime)/3600.0) 
+                    ELSE NULL END) as avg_speed,
+                tipo_taxi
+                FROM ${sourceTable}
+                WHERE pu IS NOT NULL AND do_loc IS NOT NULL
+                GROUP BY pu, do_loc, tipo_taxi
+                HAVING COUNT(*) > 10
+                ORDER BY volume DESC LIMIT 100
+            `;
             const adjData = await taxiInstance.query(sql(fallbackTable));
-            await loadAdjacencyMatrix(adjData, taxiColor, '#adjacency-matrix');
+            const fleetLabel = color === 'yellow' ? 'Amarela' : 'Verde';
+            const title = `Matriz de Adjacência - Frota ${fleetLabel} (${currentMatrixYear})`;
+            await loadAdjacencyMatrix(adjData, color, '#adjacency-matrix', { left: 70, right: 30, top: 45, bottom: 90 }, title);
         } catch (fallbackError) {
             console.error('Falha ao carregar matriz de adjacência no fallback.', fallbackError);
         }
@@ -233,16 +314,22 @@ async function handleHashChange(taxiInstance) {
         const color = getMatrixColorFromHash(hash) || 'yellow';
         setOverviewVisible(true);
         setTimelineVisible(false);
+        showYearSelector(true);
         updateMatrixButtons(color);
+        updateYearButtons(currentMatrixYear);
         await renderMatrixView(taxiInstance, color);
     } else {
         setOverviewVisible(false);
         setTimelineVisible(true);
+        showYearSelector(false);
     }
 }
 
 function setupRouting(taxiInstance) {
+    window.currentTaxiInstance = taxiInstance;
+    renderMatrixNavigation();
     attachMatrixNavigation();
+    attachYearSelector();
     window.addEventListener('hashchange', () => handleHashChange(taxiInstance));
     handleHashChange(taxiInstance);
 }
