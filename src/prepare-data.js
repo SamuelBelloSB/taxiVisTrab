@@ -156,6 +156,93 @@ async function main() {
             ) TO '${timeseriesCsv}' WITH (HEADER, DELIMITER ',', FORCE_QUOTE *, NEW_LINE '\n');
         `);
 
+        console.log('Exportando Dispersão otimizada (pontos amostrados...');
+        const dispersionCsv = path.join(PROCESSED_DIR, 'dispersion_points.csv').replace(/\\/g, '/');
+
+        await runQuery(`
+            COPY (
+                SELECT 
+                    trip_distance,
+                    tip_amount,
+                    tipo_taxi,
+                    CAST(EXTRACT(year FROM pickup_time) AS INTEGER) as ano
+                FROM (
+                    SELECT 
+                        trip_distance,
+                        tip_amount,
+                        tipo_taxi,
+                        pickup_time,
+                        row_number() OVER(PARTITION BY tipo_taxi, EXTRACT(year FROM pickup_time)) as rn
+                    FROM v_raw_trips
+                    WHERE EXTRACT(year FROM pickup_time) BETWEEN 2022 AND 2024
+                      AND trip_distance > 0.5
+                      AND tip_amount > 0
+                      AND pickup_time BETWEEN '2022-01-01' AND '2024-12-31'
+                ) x
+                WHERE rn <= 300
+            ) TO '${dispersionCsv}' WITH (HEADER, DELIMITER ',', FORCE_QUOTE *, NEW_LINE '\n');
+        `);
+
+        console.log('Exportando Matriz de Adjacências otimizada (arestas agregadas...');
+        const adjacencyCsv = path.join(PROCESSED_DIR, 'adjacency_matrix_edges.csv').replace(/\\/g, '/');
+
+        // Cria tabela local compatível com o SQL do front (com PU/DO e pickup/dropoff)
+        await runQuery(`
+            CREATE OR REPLACE TABLE taxi_trips AS
+            SELECT
+                tpep_pickup_datetime::TIMESTAMP as pickup_datetime,
+                tpep_dropoff_datetime::TIMESTAMP as dropoff_datetime,
+                trip_distance::DOUBLE as trip_distance,
+                tip_amount::DOUBLE as tip_amount,
+                'yellow' as tipo_taxi,
+                PULocationID as pu,
+                DOLocationID as do_loc
+            FROM read_parquet([
+                ${yellowFiles.map(f => `'${f}'`).join(', ')}
+            ])
+
+            UNION ALL
+
+            SELECT
+                lpep_pickup_datetime::TIMESTAMP as pickup_datetime,
+                lpep_dropoff_datetime::TIMESTAMP as dropoff_datetime,
+                trip_distance::DOUBLE as trip_distance,
+                tip_amount::DOUBLE as tip_amount,
+                'green' as tipo_taxi,
+                PULocationID as pu,
+                DOLocationID as do_loc
+            FROM read_parquet([
+                ${greenFiles.map(f => `'${f}'`).join(', ')}
+            ]);
+        `);
+
+        await runQuery(`
+            COPY (
+                SELECT 
+                    pu,
+                    do_loc,
+                    tipo_taxi,
+                    volume,
+                    avg_speed
+                FROM (
+                    SELECT 
+                        pu,
+                        do_loc,
+                        tipo_taxi,
+                        COUNT(*) as volume,
+                        AVG(CASE WHEN date_diff('second', pickup_datetime, dropoff_datetime) > 0
+                            THEN trip_distance / (date_diff('second', pickup_datetime, dropoff_datetime)/3600.0)
+                            ELSE NULL END) as avg_speed
+                    FROM taxi_trips
+                    WHERE pu IS NOT NULL AND do_loc IS NOT NULL
+                    GROUP BY pu, do_loc, tipo_taxi
+                    HAVING COUNT(*) > 10
+                    ORDER BY volume DESC
+                    LIMIT 100
+                ) y
+            ) TO '${adjacencyCsv}' WITH (HEADER, DELIMITER ',', FORCE_QUOTE *, NEW_LINE '\n');
+        `);
+
         console.log('Processamento concluído com sucesso!');
         console.timeEnd('Tempo total de processamento');
 

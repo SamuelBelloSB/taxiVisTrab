@@ -142,20 +142,19 @@ async function renderOverview(taxiInstance) {
         loadComparisonSeries(dadosMensais, '#comparison-series');
     }
 
-    // Gráfico do Samuel adaptado para o fluxo do Danilo
-    const adjacencySql = `
-        SELECT 
-            pu, do_loc, tipo_taxi, COUNT(*) as volume,
-            AVG(CASE WHEN date_diff('second', pickup_datetime, dropoff_datetime) > 0 
-                THEN trip_distance / (date_diff('second', pickup_datetime, dropoff_datetime)/3600.0) 
-                ELSE NULL END) as avg_speed
-        FROM taxi_trips
-        WHERE pu IS NOT NULL AND do_loc IS NOT NULL
-        GROUP BY pu, do_loc, tipo_taxi
-        HAVING COUNT(*) > 10
-        ORDER BY volume DESC LIMIT 100
-    `;
-    const adjData = await taxiInstance.query(adjacencySql);
+    // Matriz de Adjacências: carrega CSV pré-processado (mantém formato esperado pelo loadAdjacencyMatrix)
+    const resAdj = await fetch('data/processed/adjacency_matrix_edges.csv');
+    if (!resAdj.ok) throw new Error(`HTTP error! status: ${resAdj.status}`);
+    const textAdj = await resAdj.text();
+    const raw = d3.csvParse(textAdj);
+    const adjData = raw.map(d => ({
+        pu: Number(cleanStr(d.pu)),
+        do_loc: Number(cleanStr(d.do_loc)),
+        tipo_taxi: cleanStr(d.tipo_taxi).toLowerCase(),
+        volume: Number(cleanStr(d.volume)),
+        avg_speed: d.avg_speed === '' || d.avg_speed === null ? null : Number(cleanStr(d.avg_speed))
+    })).filter(d => !Number.isNaN(d.pu) && !Number.isNaN(d.do_loc));
+
     loadAdjacencyMatrix(adjData, '#adjacency-matrix');
 }
 
@@ -263,29 +262,23 @@ function renderFooter() {
     mainContainer.appendChild(footer);
 }
 
-async function fetchScatterData(taxiInstance) {
-    let dataScatter = [];
-    try {
-        console.log("Iniciando carregamento do DuckDB...");
-        await taxiInstance.loadTaxi([2022, 2023, 2024]);
-        
-        const sqlScatter = `
-            SELECT * FROM (
-                SELECT trip_distance, tip_amount, tipo_taxi, 
-                       CAST(EXTRACT(year FROM pickup_datetime) AS INTEGER) as ano,
-                       row_number() OVER(PARTITION BY tipo_taxi, EXTRACT(year FROM pickup_datetime)) as rn
-                FROM taxi_trips -- Esta tabela DEVE existir agora
-                WHERE trip_distance > 0.5 -- Focar em viagens com movimento relevante
-                AND tip_amount > 0         -- Remover gorjetas não registradas/zero para limpar a "mancha"
-                AND EXTRACT(year FROM pickup_datetime) BETWEEN 2022 AND 2024
-            ) WHERE rn <= 300
-        `;
-        dataScatter = await taxiInstance.query(sqlScatter);
-    } catch (e) {
-        console.error("Erro DuckDB:", e);
-    }
-    return dataScatter;
+async function fetchScatterData() {
+    // Lê o CSV pré-processado para manter o visual praticamente idêntico ao comportamento atual:
+    // - filtros: trip_distance > 0.5 e tip_amount > 0
+    // - anos: 2022..2024
+    // - amostragem: rn <= 300 por (tipo_taxi, ano)
+    const res = await fetch('data/processed/dispersion_points.csv');
+    if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    const text = await res.text();
+    const rows = d3.csvParse(text);
+    return rows.map(d => ({
+        ano: Number(cleanStr(d.ano)),
+        tipo_taxi: cleanStr(d.tipo_taxi).toLowerCase(),
+        trip_distance: Number(cleanStr(d.trip_distance)),
+        tip_amount: Number(cleanStr(d.tip_amount))
+    })).filter(d => d.ano >= 2022 && d.ano <= 2024);
 }
+
 
 async function fetchCSVData() {
     try {
