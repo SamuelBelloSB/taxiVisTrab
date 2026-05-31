@@ -289,7 +289,7 @@ async function fetchScatterData(taxiInstance) {
 
 async function fetchCSVData() {
     try {
-        const resHeatmap = await fetch('/processed/hourly_pattern.csv');
+        const resHeatmap = await fetch('/data/processed/hourly_pattern.csv');
         const textHeatmap = await resHeatmap.text();
         const dadosRaw = d3.csvParse(textHeatmap);
         cacheDadosHeatmap = dadosRaw.map(d => {
@@ -303,7 +303,7 @@ async function fetchCSVData() {
             };
         }).filter(d => d.ano >= 2022 && d.ano <= 2024);
 
-        const resSerie = await fetch('/processed/daily_timeseries.csv');
+        const resSerie = await fetch('/data/processed/daily_timeseries.csv');
         const textSerie = await resSerie.text();
         cacheDadosSerie = d3.csvParse(textSerie).map(s => {
             return {

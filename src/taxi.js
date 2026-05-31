@@ -20,7 +20,7 @@ export class Taxi {
                 for (let id = 1; id <= monthsPerYear; id++) {
                     const sId = String(id).padStart(2, '0');
                     const key = `Y${year}M${sId}_${cor}`;
-                    const url = `/${cor}/${cor}_tripdata_${year}-${sId}.parquet`;
+                const url = `/data/${cor}/${cor}_tripdata_${year}-${sId}.parquet`;
 
                     fetchPromises.push(
                         fetch(url)

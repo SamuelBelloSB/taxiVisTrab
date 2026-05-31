@@ -20,14 +20,14 @@ O projeto utiliza uma arquitetura moderna de processamento de dados híbrido:
 ### Configuração do Dataset
 1. Crie a estrutura de pastas:
    ```text
-   /00 - data/green/ (coloque os arquivos .parquet aqui)
-   /00 - data/yellow/ (coloque os arquivos .parquet aqui)
+   /public/data/green/ (coloque os arquivos .parquet aqui)
+   /public/data/yellow/ (coloque os arquivos .parquet aqui)
    ```
 2. Execute o pré-processamento:
    ```bash
    node src/prepare-data.js
    ```
-   Isso gerará os arquivos em `/processed/` necessários para o carregamento rápido.
+   Isso gerará os arquivos em `public/data/processed/` necessários para o carregamento rápido.
 
 ### Execução
 Abra o `index.html` através de um servidor local (necessário para o suporte a Web Workers do DuckDB-Wasm).
