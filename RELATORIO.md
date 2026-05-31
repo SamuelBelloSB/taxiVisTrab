@@ -73,7 +73,7 @@ Abaixo, cada uma das visualizações implementadas na plataforma é detalhada se
 
 Implementamos um Gráfico de Dispersão (Scatterplot). A decomposição sob o framework de três níveis de Tamara Munzner revela um design focado na exploração de correlações e tratamento de distribuições assimétricas.
 
-![Visualização de Dispersao - 2023](00%20-%20data/img/dispersao.png)
+![Visualização de Dispersao - 2023](https://github.com/SamuelBelloSB/taxiVisTrab/blob/main/00%20-%20data/img/dispersao.png?raw=true)
 
 #### 📦 What (Dados e Atributos)
 A visualização consome um dataset onde cada item (linha) representa uma viagem individual de táxi.
@@ -104,7 +104,7 @@ O Scatterplot é o idioma visual definitivo para analisar a relação bidimensio
 
 Gráfico de Série Temporal (Time Series com Área Preenchida) destaca a eficácia do mapeamento espacial alinhado para revelar a evolução contínua de dados ao longo do tempo.
 
-![Serie Temporal - 2023](00%20-%20data/img/serieTemporal.png)
+![Serie Temporal - 2023](https://github.com/SamuelBelloSB/taxiVisTrab/blob/main/00%20-%20data/img/serieTemporal.png?raw=true)
 
 #### 📦 What (Dados e Atributos)
 
@@ -134,7 +134,7 @@ Gráfico de Série Temporal (Time Series com Área Preenchida) destaca a eficác
 
 A visualização consome uma tabela de dados pré-agregada do DuckDB que sumariza eventos discretos em intervalos de tempo cíclicos.
 
-![Mapa de Calor - 2023](00%20-%20data/img/mapaDeCalor.png)
+![Mapa de Calor - 2023](https://github.com/SamuelBelloSB/taxiVisTrab/blob/main/00%20-%20data/img/mapaDeCalor.png?raw=true)
 
 #### 📦 What (Dados e Atributos)
 
@@ -164,7 +164,7 @@ A visualização consome uma tabela de dados pré-agregada do DuckDB que sumariz
 
 Muito eficiente para a exploração de topologias de rede, focando inteiramente em relações espaciais e de fluxo.
 
-![Matriz de adjascência - 2023](00%20-%20data/img/matrizDeAdjacenciaAm.png)
+![Matriz de adjascência - 2023](https://github.com/SamuelBelloSB/taxiVisTrab/blob/main/00%20-%20data/img/matrizDeAdjacenciaAm.png?raw=true)
 
 #### 📦 What (Dados e Atributos)
 
@@ -194,7 +194,7 @@ Muito eficiente para a exploração de topologias de rede, focando inteiramente 
 
 Exibe quatro variáveis simultaneamente na tela (Volume e Faturamento, para as frotas Amarela e Verde) ao longo do tempo.
 
-![Tendência Comparativa](00%20-%20data/img/tendenciaComparativa.png)
+![Tendência Comparativa](https://github.com/SamuelBelloSB/taxiVisTrab/blob/main/00%20-%20data/img/tendenciaComparativa.png?raw=true)
 
 #### 📦 What (Dados e Atributos)
 
