@@ -20,15 +20,31 @@ export class Taxi {
                 for (let id = 1; id <= monthsPerYear; id++) {
                     const sId = String(id).padStart(2, '0');
                     const key = `Y${year}M${sId}_${cor}`;
-                const url = `/data/${cor}/${cor}_tripdata_${year}-${sId}.parquet`;
+                    const url = `00%20-%20data/${cor}/${cor}_tripdata_${year}-${sId}.parquet`;
 
                     fetchPromises.push(
                         fetch(url)
                             .then(async (res) => {
-                                if (!res.ok) return null;
+                                if (!res.ok) {
+                                    console.warn(`Arquivo não encontrado: ${url}`);
+                                    return null;
+                                }
+                                // Verifica se o servidor retornou um HTML (comum em erros de rota no Vite)
+                                const ct = res.headers.get('content-type');
+                                if (ct && ct.includes('text/html')) {
+                                    console.error(`Erro de rota: O servidor retornou HTML em vez de Parquet para: ${url}. Verifique se a pasta "00 - data" existe e se o servidor está configurado para servi-la (Dica: mova para dentro de "public/" se estiver usando Vite).`);
+                                    return null;
+                                }
+
                                 const buffer = await res.arrayBuffer();
-                                await this.db.registerFileBuffer(key, new Uint8Array(buffer));
-                                return { key, cor };
+                                const uint8 = new Uint8Array(buffer);
+                                // Verifica Magic Bytes "PAR1" (Parquet) nos primeiros 4 bytes
+                                if (uint8[0] === 0x50 && uint8[1] === 0x41 && uint8[2] === 0x52 && uint8[3] === 0x31) {
+                                    await this.db.registerFileBuffer(key, uint8);
+                                    return { key, cor };
+                                }
+                                console.error(`Arquivo inválido (não é Parquet): ${url}`);
+                                return null;
                             })
                             .catch(() => null)
                     );
@@ -41,14 +57,15 @@ export class Taxi {
             if (res) files.push(res);
         });
 
-        await this.conn.query(`DROP TABLE IF EXISTS ${this.table}`);
-
         if (files.length === 0) {
-            console.warn("Nenhum arquivo Parquet foi encontrado localmente.");
-            // Cria tabela vazia para evitar erros de 'tabela não encontrada' em queries futuras
-            await this.conn.query(`CREATE TABLE ${this.table} (pickup_datetime TIMESTAMP, trip_distance DOUBLE, tip_amount DOUBLE, tipo_taxi VARCHAR)`);
+            console.error("ERRO CRÍTICO: Nenhum arquivo Parquet válido foi carregado.");
+            // Garante que a tabela exista (mesmo vazia) para não quebrar o restante do dash
+            await this.conn.query(`CREATE TABLE IF NOT EXISTS ${this.table} (pickup_datetime TIMESTAMP, dropoff_datetime TIMESTAMP, trip_distance DOUBLE, tip_amount DOUBLE, tipo_taxi VARCHAR, pu INTEGER, do_loc INTEGER)`);
             return;
         }
+
+        // Drop e Recriação segura
+        await this.conn.query(`DROP TABLE IF EXISTS ${this.table}`);
 
         // Cada cor busca sua coluna nativa de data para não gerar Binder Error
         // Adaptado para carregar PU/DO IDs necessários para a Matriz do Samuel
@@ -65,6 +82,7 @@ export class Taxi {
                     PULocationID as pu,
                     DOLocationID as do_loc
                 FROM read_parquet('${f.key}')
+                -- Nota: DuckDB consegue filtrar por colunas (fare_amount) mesmo que não estejam no SELECT
                 WHERE trip_distance > 0.1 
                   AND fare_amount >= 2.50
                   AND tip_amount IS NOT NULL

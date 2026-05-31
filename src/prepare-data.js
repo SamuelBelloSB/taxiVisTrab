@@ -8,8 +8,8 @@ const __dirname = path.dirname(__filename);
 
 const DB_PATH = path.join(__dirname, '../00 - data/local_cache.db');
 const PROCESSED_DIR = path.join(__dirname, '../public/data/processed');
-const GREEN_DIR = path.join(__dirname, '../public/data/green');
-const YELLOW_DIR = path.join(__dirname, '../public/data/yellow');
+const GREEN_DIR = path.join(__dirname, '../00 - data/green');
+const YELLOW_DIR = path.join(__dirname, '../00 - data/yellow');
 
 if (!fs.existsSync(PROCESSED_DIR)) {
     fs.mkdirSync(PROCESSED_DIR, { recursive: true });

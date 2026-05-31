@@ -20,8 +20,8 @@ O projeto utiliza uma arquitetura moderna de processamento de dados híbrido:
 ### Configuração do Dataset
 1. Crie a estrutura de pastas:
    ```text
-   /public/data/green/ (coloque os arquivos .parquet aqui)
-   /public/data/yellow/ (coloque os arquivos .parquet aqui)
+   /00 - data/green/ (coloque os arquivos .parquet aqui)
+   /00 - data/yellow/ (coloque os arquivos .parquet aqui)
    ```
 2. Execute o pré-processamento:
    ```bash

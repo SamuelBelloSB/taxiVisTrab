@@ -266,7 +266,7 @@ function renderFooter() {
 async function fetchScatterData(taxiInstance) {
     let dataScatter = [];
     try {
-        // Intervalo 2022-2024 para dispersão
+        console.log("Iniciando carregamento do DuckDB...");
         await taxiInstance.loadTaxi([2022, 2023, 2024]);
         
         const sqlScatter = `
@@ -274,7 +274,7 @@ async function fetchScatterData(taxiInstance) {
                 SELECT trip_distance, tip_amount, tipo_taxi, 
                        CAST(EXTRACT(year FROM pickup_datetime) AS INTEGER) as ano,
                        row_number() OVER(PARTITION BY tipo_taxi, EXTRACT(year FROM pickup_datetime)) as rn
-                FROM taxi_trips
+                FROM taxi_trips -- Esta tabela DEVE existir agora
                 WHERE trip_distance > 0.5 -- Focar em viagens com movimento relevante
                 AND tip_amount > 0         -- Remover gorjetas não registradas/zero para limpar a "mancha"
                 AND EXTRACT(year FROM pickup_datetime) BETWEEN 2022 AND 2024
@@ -289,7 +289,9 @@ async function fetchScatterData(taxiInstance) {
 
 async function fetchCSVData() {
     try {
-        const resHeatmap = await fetch('/data/processed/hourly_pattern.csv');
+        const resHeatmap = await fetch('data/processed/hourly_pattern.csv');
+        if (!resHeatmap.ok) throw new Error(`HTTP error! status: ${resHeatmap.status}`);
+        
         const textHeatmap = await resHeatmap.text();
         const dadosRaw = d3.csvParse(textHeatmap);
         cacheDadosHeatmap = dadosRaw.map(d => {
@@ -303,7 +305,9 @@ async function fetchCSVData() {
             };
         }).filter(d => d.ano >= 2022 && d.ano <= 2024);
 
-        const resSerie = await fetch('/data/processed/daily_timeseries.csv');
+        const resSerie = await fetch('data/processed/daily_timeseries.csv');
+        if (!resSerie.ok) throw new Error(`HTTP error! status: ${resSerie.status}`);
+
         const textSerie = await resSerie.text();
         cacheDadosSerie = d3.csvParse(textSerie).map(s => {
             return {
