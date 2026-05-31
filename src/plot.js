@@ -16,6 +16,12 @@ function getTooltip() {
     return t;
 }
 
+export function clearChart(selector = '#adjacency-matrix') {
+    const svg = d3.select(selector);
+    if (!svg.node()) return;
+    svg.selectAll('*').remove();
+}
+
 export function loadChart(data, selector = '#scatter-svg', margens = { left: 50, right: 25, top: 25, bottom: 50 }) {
     const svg = d3.select(selector);
     if (!svg.node()) return;
@@ -513,7 +519,7 @@ export function loadComparisonSeries(data, selector) {
 /**
  * GRÁFICO DO SAMUEL: Matriz de Adjacência com Canal de Velocidade
  */
-export async function loadAdjacencyMatrix(rawData, selector, margens = { left: 70, right: 30, top: 45, bottom: 90 }) {
+export async function loadAdjacencyMatrix(rawData, taxiColor = 'yellow', selector = '#adjacency-matrix', margens = { left: 70, right: 30, top: 45, bottom: 90 }) {
     const svg = d3.select(selector);
     if (!svg.node()) return;
 
@@ -571,7 +577,8 @@ export async function loadAdjacencyMatrix(rawData, selector, margens = { left: 7
     const xBand = d3.scaleBand().domain(destinations).range([0, width]).padding(0.12);
     const yBand = d3.scaleBand().domain(origins).range([0, height]).padding(0.12);
 
-    const colorScale = d3.scaleSequential(d3.interpolateRdYlGn).domain([5, 30]);
+    const interpolator = taxiColor === 'green' ? d3.interpolateBuGn : d3.interpolateYlOrBr;
+    const colorScale = d3.scaleSequential(interpolator).domain([5, 30]);
     const opacityScale = d3.scaleLinear().domain([0, globalMaxVolume || 1]).range([0.7, 1]);
 
     matrixGroup.selectAll('.cell')
@@ -613,7 +620,7 @@ export async function loadAdjacencyMatrix(rawData, selector, margens = { left: 7
         .attr('x', d => d * legendWidth)
         .attr('width', legendWidth / 10 + 0.5)
         .attr('height', legendHeight)
-        .attr('fill', d => d3.interpolateRdYlGn(d))
+        .attr('fill', d => interpolator(d))
         .attr('opacity', 0.85); // Ajuste de tom para combinar com as células do gráfico
 
     legendG.append('text')

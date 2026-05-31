@@ -1,5 +1,5 @@
 import { Taxi } from "./taxi.js";
-import { loadChart, loadHeatmap, loadRidgePlot, loadTimeSeries, loadKPITable, loadComparisonSeries, loadAdjacencyMatrix } from './plot.js';
+import { loadChart, loadHeatmap, loadRidgePlot, loadTimeSeries, loadKPITable, loadComparisonSeries, loadAdjacencyMatrix, clearChart } from './plot.js';
 import * as d3 from 'd3';
 
 let cacheDadosHeatmap = [];
@@ -141,22 +141,110 @@ async function renderOverview(taxiInstance) {
         console.log("Amostra Agregação Mensal (Comparativo):", dadosMensais.filter(d => d.tipo_taxi === 'green').slice(0, 3));
         loadComparisonSeries(dadosMensais, '#comparison-series');
     }
+}
 
-    // Gráfico do Samuel adaptado para o fluxo do Danilo
-    const adjacencySql = `
+const DEFAULT_MATRIX_HASH = '#matriz-yellow';
+
+function getMatrixColorFromHash(hash) {
+    const normalized = (hash || '').toLowerCase();
+    if (normalized === '#matriz-green') return 'green';
+    if (normalized === '#matriz-yellow') return 'yellow';
+    return null;
+}
+
+function isMatrixHash(hash) {
+    return /^#matriz-(yellow|green)$/.test((hash || '').toLowerCase());
+}
+
+function isFleetHash(hash) {
+    return /^#block-(yellow|green)$/.test((hash || '').toLowerCase());
+}
+
+function updateMatrixButtons(activeColor) {
+    document.querySelectorAll('.matrix-tab').forEach(button => {
+        const buttonColor = button.dataset.hash.replace('#matriz-', '');
+        button.classList.toggle('active', buttonColor === activeColor);
+    });
+}
+
+function setOverviewVisible(visible) {
+    const overview = document.getElementById('overview-container');
+    if (overview) overview.style.display = visible ? '' : 'none';
+}
+
+function setTimelineVisible(visible) {
+    const timeline = document.getElementById('timeline-container');
+    if (timeline) timeline.style.display = visible ? '' : 'none';
+}
+
+function attachMatrixNavigation() {
+    document.querySelectorAll('.matrix-tab').forEach(button => {
+        button.addEventListener('click', () => {
+            window.location.hash = button.dataset.hash;
+        });
+    });
+}
+
+async function renderMatrixView(taxiInstance, color) {
+    if (!taxiInstance) return;
+    const taxiColor = color === 'green' ? 'green' : 'yellow';
+    const tableName = taxiColor === 'green' ? 'taxi_green_2023' : 'taxi_yellow_2023';
+    const fallbackTable = 'taxi_trips';
+
+    const sql = (sourceTable) => `
         SELECT 
-            pu, do_loc, tipo_taxi, COUNT(*) as volume,
+            pu, do_loc, COUNT(*) as volume,
             AVG(CASE WHEN date_diff('second', pickup_datetime, dropoff_datetime) > 0 
                 THEN trip_distance / (date_diff('second', pickup_datetime, dropoff_datetime)/3600.0) 
-                ELSE NULL END) as avg_speed
-        FROM taxi_trips
+                ELSE NULL END) as avg_speed,
+            tipo_taxi
+        FROM ${sourceTable}
         WHERE pu IS NOT NULL AND do_loc IS NOT NULL
         GROUP BY pu, do_loc, tipo_taxi
         HAVING COUNT(*) > 10
-        ORDER BY volume DESC LIMIT 100
+        ORDER BY volume DESC
+        LIMIT 100
     `;
-    const adjData = await taxiInstance.query(adjacencySql);
-    loadAdjacencyMatrix(adjData, '#adjacency-matrix');
+
+    clearChart('#adjacency-matrix');
+
+    try {
+        const adjData = await taxiInstance.query(sql(tableName));
+        await loadAdjacencyMatrix(adjData, taxiColor, '#adjacency-matrix');
+    } catch (error) {
+        console.warn(`Falha no carregamento da tabela ${tableName}, usando fallback ${fallbackTable}.`, error);
+        try {
+            const adjData = await taxiInstance.query(sql(fallbackTable));
+            await loadAdjacencyMatrix(adjData, taxiColor, '#adjacency-matrix');
+        } catch (fallbackError) {
+            console.error('Falha ao carregar matriz de adjacência no fallback.', fallbackError);
+        }
+    }
+}
+
+async function handleHashChange(taxiInstance) {
+    let hash = window.location.hash || DEFAULT_MATRIX_HASH;
+    if (!hash || (!isMatrixHash(hash) && !isFleetHash(hash))) {
+        window.history.replaceState(null, '', DEFAULT_MATRIX_HASH);
+        hash = DEFAULT_MATRIX_HASH;
+    }
+
+    if (isMatrixHash(hash)) {
+        const color = getMatrixColorFromHash(hash) || 'yellow';
+        setOverviewVisible(true);
+        setTimelineVisible(false);
+        updateMatrixButtons(color);
+        await renderMatrixView(taxiInstance, color);
+    } else {
+        setOverviewVisible(false);
+        setTimelineVisible(true);
+    }
+}
+
+function setupRouting(taxiInstance) {
+    attachMatrixNavigation();
+    window.addEventListener('hashchange', () => handleHashChange(taxiInstance));
+    handleHashChange(taxiInstance);
 }
 
 const DataProcessor = {
@@ -215,12 +303,12 @@ window.onload = async () => {
     await taxi.init();
     
     setupSidebar();
-
     globalScatterData = await fetchScatterData(taxi);
     await fetchCSVData();
     
     await renderOverview(taxi);
     orchestratePlots(globalScatterData);
+    setupRouting(taxi);
     renderFooter();
 };
 
