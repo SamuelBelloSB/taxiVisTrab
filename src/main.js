@@ -39,7 +39,7 @@ const UIManager = {
             section.className = 'year-block';
             section.id = `block-${tipo}`;
             section.innerHTML = `
-                <div class="year-header">Análise de Frota: Táxi ${tipo.toUpperCase()}</div>
+                <div class="year-header">Frota ${tipo === 'green' ? 'Verde' : 'Amarela'}</div>
                 
                 <div class="year-selector-container" data-tipo="${tipo}">
                     <button class="year-btn ${selectedYear === 2022 ? 'active' : ''}" data-year="2022">2022</button>
@@ -48,12 +48,12 @@ const UIManager = {
                 </div>
 
                 <div class="charts-grid">
-                    <div class="chart-box"><h3>Distância vs Gorjeta</h3><svg id="scatter-${tipo}"></svg></div>
-                    <div class="chart-box"><h3>Série Histórica Consolidada</h3><svg id="series-${tipo}"></svg></div>
+                    <div class="chart-box"><h3>Dispersão (Distância x Gorjeta)</h3><svg id="scatter-${tipo}"></svg></div>
+                    <div class="chart-box"><h3>Série Temporal (Volume)</h3><svg id="series-${tipo}"></svg></div>
                 </div>
                 <div class="pattern-header-container">
-                    <div class="pattern-header">Padrão Temporal de Demanda</div>
-                    <div class="pattern-subtitle">Densidade de viagens por hora e dia da semana (Consolidado por quadrimestre em ${selectedYear})</div>
+                    <div class="pattern-header">Mapa de Calor (Horário x Dia)</div>
+                    <div class="pattern-subtitle">Concentração de viagens por período</div>
                 </div>
                 <div class="monthly-grid" id="grid-${tipo}"></div>
             `;
@@ -82,21 +82,25 @@ const UIManager = {
 async function renderOverview(taxiInstance) {
     const container = document.getElementById('overview-container');
     container.innerHTML = `
-        <h2>Sumário Executivo do Mercado</h2>
-        <div id="kpi-table-container"></div>
+        <div style="width: 100%; text-align: center; margin-bottom: 30px; border-bottom: 2px solid #5b6346; padding-bottom: 10px;">
+            <h1 style="color: #5b6346; margin: 0; font-size: 2.2em;">Fluxo de Táxis de NY (2022 — 2024)</h1>
+        </div>
 
         <div class="charts-grid" style="margin-top: 20px;">
-             <div class="chart-box" style="height:450px; flex: 1.5;">
-                <h3>Matriz de Fluxo: Origem vs Destino</h3>
-                <div class="pattern-subtitle">Top rotas por volume. Cor indica velocidade média (Canal de Velocidade).</div>
+            <div class="chart-box" style="height:520px;">
+                <h3 style="min-height: 2.5em; display: flex; align-items: center; text-align: center;">Matriz de Adjacências (Origem x Destino)</h3>
+                <div class="pattern-subtitle">Cor indica velocidade média (Canal de Velocidade).</div>
                 <svg id="adjacency-matrix"></svg>
+            </div>
+            <div class="chart-box" style="height:520px;">
+                <h3 style="min-height: 2.5em; display: flex; align-items: center; text-align: center;">Tendência Comparativa (Volume x Faturamento)</h3>
+                <div class="pattern-subtitle">Evolução consolidada das frotas no triênio.</div>
+                <svg id="comparison-series"></svg>
             </div>
         </div>
 
-        <div class="chart-box" style="margin-top:20px; height:350px; width:100%;">
-            <h3>Tendência Comparativa: Volume vs. Faturamento (2022-2024)</h3>
-            <svg id="comparison-series"></svg>
-        </div>
+        <h2 style="margin-top: 30px;">Sumário Executivo do Mercado</h2>
+        <div id="kpi-table-container"></div>
     `;
 
     if (cacheDadosSerie.length === 0) return;
@@ -148,8 +152,8 @@ async function renderOverview(taxiInstance) {
         FROM taxi_trips
         WHERE pu IS NOT NULL AND do_loc IS NOT NULL
         GROUP BY pu, do_loc, tipo_taxi
-        HAVING COUNT(*) > 20
-        ORDER BY volume DESC LIMIT 60
+        HAVING COUNT(*) > 10
+        ORDER BY volume DESC LIMIT 100
     `;
     const adjData = await taxiInstance.query(adjacencySql);
     loadAdjacencyMatrix(adjData, '#adjacency-matrix');
@@ -201,7 +205,7 @@ function orchestratePlots(dataScatter) {
         const dataByQ = groupedData.get(tipo);
         for (let q = 1; q <= 3; q++) {
             const dadosQ = dataByQ ? dataByQ.get(q) || [] : [];
-            loadHeatmap(dadosQ, `#heatmap-${tipo}-q${q}`, { left: 40, right: 45, top: 20, bottom: 45 }, globalMaxVolume);
+            loadHeatmap(dadosQ, `#heatmap-${tipo}-q${q}`, { left: 40, right: 45, top: 20, bottom: 90 }, globalMaxVolume);
         }
     });
 }
@@ -252,7 +256,7 @@ function renderFooter() {
                 </p>
             </div>
         </div>
-        <div style="text-align: center; font-size: 0.75em; color: #d4c3a3; margin-top: 10px;">
+        <div style="text-align: center; font-size: 0.9em; color: #f7f3f0; margin-top: 25px; font-weight: 600; opacity: 0.9; border-top: 1px solid #5b6346; padding-top: 15px;">
             Trabalho acadêmico desenvolvido para fins de estudo e análise de fluxos urbanos.
         </div>
     `;

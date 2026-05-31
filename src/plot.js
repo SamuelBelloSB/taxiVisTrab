@@ -86,7 +86,7 @@ export function loadChart(data, selector = '#scatter-svg', margens = { left: 50,
 }
 
 // 1. GRAFICO DO HEATMAP
-export function loadHeatmap(data, selector = '#heatmap-svg', margens = { left: 50, right: 25, top: 40, bottom: 50 }, globalMax) {
+export function loadHeatmap(data, selector = '#heatmap-svg', margens = { left: 50, right: 25, top: 40, bottom: 90 }, globalMax) {
     const svg = d3.select(selector);
     if (!svg.node()) return;
     
@@ -99,19 +99,26 @@ export function loadHeatmap(data, selector = '#heatmap-svg', margens = { left: 5
     svg.selectAll('*').remove();
     const g = svg.append('g').attr('transform', 'translate(' + margens.left + ', ' + margens.top + ')');
 
+    // Identifica a frota para definir a paleta de cores correta
+    const tipo = data.length > 0 ? data[0].tipo_taxi : 'yellow';
+    const interpolator = tipo === 'green' ? d3.interpolateGreens : d3.interpolateYlOrBr;
+
     const mapX = d3.scaleBand().domain(horasEixo).range([0, larguraGrafico]).padding(0.04);
     const mapY = d3.scaleBand().domain(domDiasMinuscula).range([0, alturaGrafico]).padding(0.04);
 
     // Se globalMax for fornecido, usamos ele para comparar cores entre diferentes heatmaps
     const maxVal = globalMax || d3.max(data, d => d.volume) || 1;
-    const escalaCor = d3.scaleLog().domain([1, Math.max(2, maxVal)]).range([0, 1]);
+    
+    // Escala Logarítmica: 0.2 a 1 para evitar que o "mínimo" desapareça no fundo
+    const escalaCor = d3.scaleLog().domain([1, Math.max(2, maxVal)]).range([0.2, 1]);
 
     g.selectAll('.celula').data(data.filter(function(d) { return d.volume > 0; })).join('rect')
         .attr('x', function(d) { return mapX(d.hora); })
         .attr('y', function(d) { return mapY(d.dia_semana); })
         .attr('width', mapX.bandwidth()).attr('height', mapY.bandwidth())
-        // Viridis: Escala universalmente acessível (Roxo -> Verde -> Amarelo)
-        .attr('fill', function(d) { return d3.interpolateViridis(escalaCor(d.volume)); }).attr('rx', 2);
+        .attr('fill', function(d) { return interpolator(escalaCor(d.volume)); })
+        .attr('rx', 0)
+        .style('opacity', 0.9);
 
     // Eixo X (Horas)
     g.append('g')
@@ -135,35 +142,44 @@ export function loadHeatmap(data, selector = '#heatmap-svg', margens = { left: 5
 
     // Legenda de Cor (apenas se houver dados)
     if (data.length > 0) {
-        const legendWidth = larguraGrafico * 0.5; // Reduzido para dar mais espaço ao texto lateral
+        const legendWidth = larguraGrafico * 0.7; 
         const legendHeight = 8;
         const legendG = g.append('g')
-            .attr('transform', `translate(${(larguraGrafico - legendWidth)/2}, ${alturaGrafico + 30})`);
+            .attr('transform', `translate(${(larguraGrafico - legendWidth)/2}, ${alturaGrafico + 45})`);
 
-        const legendScale = d3.range(0, 1.1, 0.1);
+        // Definição de gradiente contínuo para a legenda
+        let defs = svg.select("defs");
+        if (defs.empty()) defs = svg.append("defs");
         
-        legendG.selectAll('rect')
-            .data(legendScale)
-            .join('rect')
-            .attr('x', d => d * legendWidth)
-            .attr('y', 0)
-            .attr('width', legendWidth / 10)
-            .attr('height', legendHeight)
-            .attr('fill', d => d3.interpolateViridis(d));
+        const gradId = `heatmap-grad-${tipo}-${selector.replace('#', '')}`;
+        if (defs.select(`#${gradId}`).empty()) {
+            const gradient = defs.append("linearGradient").attr("id", gradId);
+            gradient.append("stop").attr("offset", "0%").attr("stop-color", interpolator(0.2));
+            gradient.append("stop").attr("offset", "100%").attr("stop-color", interpolator(1));
+        }
+
+        legendG.append('rect')
+            .attr('width', legendWidth).attr('height', legendHeight)
+            .style('fill', `url(#${gradId})`).attr('rx', 2);
 
         legendG.append('text')
-            .attr('x', -5)
-            .attr('y', legendHeight - 1)
-            .attr('text-anchor', 'end')
-            .style('font-size', '9px')
-            .text('Min');
-
-        legendG.append('text')
-            .attr('x', legendWidth + 5)
-            .attr('y', legendHeight - 1)
+            .attr('x', 0).attr('y', legendHeight + 14)
             .attr('text-anchor', 'start')
-            .style('font-size', '9px')
-            .text('Pico de Demanda');
+            .style('font-size', '11px').attr('fill', '#5b6346').style('font-weight', 'bold')
+            .text('Baixa (1)');
+
+        legendG.append('text')
+            .attr('x', legendWidth).attr('y', legendHeight + 14)
+            .attr('text-anchor', 'end')
+            .style('font-size', '11px').attr('fill', '#5b6346').style('font-weight', 'bold')
+            .text(`Pico: ${d3.format(".2s")(maxVal)}`);
+
+        legendG.append('text')
+            .attr('x', legendWidth / 2).attr('y', -8)
+            .attr('text-anchor', 'middle')
+            .style('font-size', '11px').style('font-weight', 'bold')
+            .attr('fill', '#5b6346')
+            .text(`Mapa de Calor (${tipo.toUpperCase()})`);
     }
 }
 
@@ -361,7 +377,7 @@ export function loadComparisonSeries(data, selector) {
 
     svg.selectAll('*').remove();
 
-    const margens = { top: 30, right: 120, bottom: 40, left: 60 };
+    const margens = { top: 60, right: 30, bottom: 60, left: 70 };
     const rectDim = svg.node().getBoundingClientRect();
     const width = (rectDim.width || 800) - margens.left - margens.right;
     const height = (rectDim.height || 340) - margens.top - margens.bottom;
@@ -402,27 +418,30 @@ export function loadComparisonSeries(data, selector) {
             .attr('fill', coresScatter[key])
             .style('opacity', 0.8);
 
-        // Label da frota no final da linha
-        const lastPoint = sortedValues[sortedValues.length - 1];
-        if (!lastPoint) return;
-        
-        // Label Volume
-        g.append('text')
-            .attr('x', mapX(lastPoint.data) + 5)
-            .attr('y', mapY(lastPoint.volume))
-            .attr('fill', coresScatter[key])
-            .style('font-size', '10px')
-            .style('font-weight', 'bold')
-            .text(key === 'yellow' ? 'Vol. Amarela' : 'Vol. Verde');
+    });
 
-        // Label Faturamento
-        g.append('text')
-            .attr('x', mapX(lastPoint.data) + 5)
-            .attr('y', mapY(lastPoint.faturamento))
-            .attr('fill', coresScatter[key])
-            .style('font-size', '10px')
-            .style('font-style', 'italic')
-            .text(key === 'yellow' ? 'Fat. Amarela' : 'Fat. Verde');
+    // Legenda Fixa no Topo
+    const legendG = g.append('g').attr('transform', `translate(0, -40)`);
+    const legendItems = [
+        { label: 'Volume Amarelo', color: coresScatter.yellow, dash: 'none' },
+        { label: 'Faturamento Amarelo', color: coresScatter.yellow, dash: '5,3' },
+        { label: 'Volume Verde', color: coresScatter.green, dash: 'none' },
+        { label: 'Faturamento Verde', color: coresScatter.green, dash: '5,3' }
+    ];
+
+    legendItems.forEach((item, i) => {
+        const x = (i % 2) * 180;
+        const y = Math.floor(i / 2) * 15;
+        const itemG = legendG.append('g').attr('transform', `translate(${x}, ${y})`);
+        
+        itemG.append('line')
+            .attr('x1', 0).attr('x2', 25)
+            .attr('stroke', item.color).attr('stroke-width', 2).attr('stroke-dasharray', item.dash);
+        
+        itemG.append('text')
+            .attr('x', 30).attr('y', 4)
+            .attr('fill', '#5b6346').style('font-size', '11px').style('font-weight', 'bold')
+            .text(item.label);
     });
 
     // Eixo X: Intervalos de 6 meses para melhor espaçamento
@@ -430,13 +449,22 @@ export function loadComparisonSeries(data, selector) {
         .attr('transform', `translate(0,${height})`)
         .call(d3.axisBottom(mapX)
             .ticks(d3.timeMonth.every(6))
-            .tickFormat(d3.timeFormat("%b/%y")));
+            .tickFormat(d3.timeFormat("%b/%y")))
+        .append('text')
+        .attr('x', width / 2)
+        .attr('y', 45)
+        .attr('fill', '#5b6346').attr('font-weight', 'bold').text('Linha do Tempo (Mensal)');
     
     // Eixo Y: Labels forçadas em pontos estratégicos para evitar acúmulo no topo
     g.append('g')
         .call(d3.axisLeft(mapY)
             .tickValues([0, 100000, 1000000, 10000000, 100000000])
-            .tickFormat(d3.format(".1s")));
+            .tickFormat(d3.format(".1s")))
+        .append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('y', -55).attr('x', -height / 2)
+        .attr('fill', '#5b6346').attr('font-weight', 'bold').attr('text-anchor', 'middle')
+        .text('Escala Logarítmica (Volume / $) ');
 
     // Camada de Interatividade
     const focusLine = g.append('line')
@@ -485,7 +513,7 @@ export function loadComparisonSeries(data, selector) {
 /**
  * GRÁFICO DO SAMUEL: Matriz de Adjacência com Canal de Velocidade
  */
-export async function loadAdjacencyMatrix(rawData, selector, margens = { left: 60, right: 25, top: 10, bottom: 80 }) {
+export async function loadAdjacencyMatrix(rawData, selector, margens = { left: 70, right: 30, top: 45, bottom: 90 }) {
     const svg = d3.select(selector);
     if (!svg.node()) return;
 
@@ -532,34 +560,105 @@ export async function loadAdjacencyMatrix(rawData, selector, margens = { left: 6
         destTotals.set(d.do, (destTotals.get(d.do) || 0) + d.totalVolume);
     });
 
-    const origins = Array.from(originTotals.entries()).sort((a,b)=>b[1]-a[1]).map(d=>d[0]);
-    const destinations = Array.from(destTotals.entries()).sort((a,b)=>b[1]-a[1]).map(d=>d[0]);
+    const origins = Array.from(originTotals.entries()).sort((a,b)=>b[1]-a[1]).slice(0, 15).map(d=>d[0]);
+    const destinations = Array.from(destTotals.entries()).sort((a,b)=>b[1]-a[1]).slice(0, 15).map(d=>d[0]);
 
     const matrixGroup = svg.append('g').attr('transform', `translate(${margens.left}, ${margens.top})`);
 
     const width = svgWidth - margens.left - margens.right;
     const height = svgHeight - margens.top - margens.bottom;
 
-    const xBand = d3.scaleBand().domain(destinations).range([0, width]).padding(0.20);
-    const yBand = d3.scaleBand().domain(origins).range([0, height]).padding(0.20);
+    const xBand = d3.scaleBand().domain(destinations).range([0, width]).padding(0.12);
+    const yBand = d3.scaleBand().domain(origins).range([0, height]).padding(0.12);
 
     const colorScale = d3.scaleSequential(d3.interpolateRdYlGn).domain([5, 30]);
-    const opacityScale = d3.scaleLinear().domain([0, globalMaxVolume || 1]).range([0.35, 1]);
+    const opacityScale = d3.scaleLinear().domain([0, globalMaxVolume || 1]).range([0.7, 1]);
 
-    matrixGroup.selectAll('.cell').data(aggregated).join('rect')
+    matrixGroup.selectAll('.cell')
+        .data(aggregated.filter(d => origins.includes(d.pu) && destinations.includes(d.do)))
+        .join('rect')
         .attr('class','cell')
         .attr('x', d => xBand(d.do))
         .attr('y', d => yBand(d.pu))
         .attr('width', xBand.bandwidth()).attr('height', yBand.bandwidth())
         .attr('fill', d => d.avg_speed ? colorScale(d.avg_speed) : '#eee')
         .attr('opacity', d => opacityScale(d.totalVolume))
+        .attr('stroke', '#8b7d6b')
+        .attr('stroke-width', 0.8)
         .on('mouseover', (event, d) => {
+            // Encontra a frota com maior volume na rota
+            const predominantKey = Object.entries(d.fleetCounts).reduce((a, b) => (a[1] > b[1] ? a : b))[0];
+            const fleetName = predominantKey === 'yellow' ? 'Amarela' : 'Verde';
             tooltip.style('display', 'block').html(`
                 <b>Rota:</b> ${d.pu} → ${d.do}<br/>
                 <b>Volume:</b> ${d.totalVolume} viagens<br/>
+                <b>Frota Predom.:</b> ${fleetName}<br/>
                 <b>Velocidade:</b> ${d.avg_speed ? d.avg_speed.toFixed(1) + ' mph' : 'N/A'}
             `);
         })
         .on('mousemove', (event) => tooltip.style('left', (event.pageX + 10) + 'px').style('top', (event.pageY - 10) + 'px'))
         .on('mouseout', () => tooltip.style('display', 'none'));
+
+    // Legenda de Velocidade (Cores: Vermelho -> Verde)
+    const legendWidth = 140;
+    const legendHeight = 8;
+    const legendG = matrixGroup.append('g')
+        .attr('transform', `translate(${width - legendWidth}, -25)`);
+
+    const legendScale = d3.range(0, 1.1, 0.1);
+    legendG.selectAll('.speed-rect')
+        .data(legendScale)
+        .join('rect')
+        .attr('class', 'speed-rect')
+        .attr('x', d => d * legendWidth)
+        .attr('width', legendWidth / 10 + 0.5)
+        .attr('height', legendHeight)
+        .attr('fill', d => d3.interpolateRdYlGn(d))
+        .attr('opacity', 0.85); // Ajuste de tom para combinar com as células do gráfico
+
+    legendG.append('text')
+        .attr('x', -8)
+        .attr('y', legendHeight - 1)
+        .attr('text-anchor', 'end')
+        .style('font-size', '11px')
+        .style('font-weight', 'bold')
+        .attr('fill', '#5b6346')
+        .text('Velocidade Média (mph)');
+
+    legendG.append('text').attr('x', 0).attr('y', legendHeight + 10).style('font-size', '9px').text('5 mph');
+    legendG.append('text').attr('x', legendWidth).attr('y', legendHeight + 10).attr('text-anchor', 'end').style('font-size', '9px').text('30+ mph');
+
+    // --- Renderização dos Eixos ---
+
+    // Eixo X (Destino)
+    matrixGroup.append('g')
+        .attr('transform', `translate(0, ${height})`)
+        .call(d3.axisBottom(xBand))
+        .selectAll("text")
+        .style("text-anchor", "end")
+        .attr("dx", "-.8em")
+        .attr("dy", ".15em")
+        .attr("transform", "rotate(-45)");
+
+    // Eixo Y (Origem)
+    matrixGroup.append('g')
+        .call(d3.axisLeft(yBand));
+
+    // Títulos dos eixos para clareza contextual
+    matrixGroup.append('text')
+        .attr('x', width / 2)
+        .attr('y', height + margens.bottom - 10)
+        .attr('fill', '#5b6346')
+        .attr('text-anchor', 'middle')
+        .attr('font-weight', 'bold')
+        .text('ID Localidade de Destino');
+
+    matrixGroup.append('text')
+        .attr('transform', 'rotate(-90)')
+        .attr('y', -margens.left + 20)
+        .attr('x', -height / 2)
+        .attr('fill', '#5b6346')
+        .attr('text-anchor', 'middle')
+        .attr('font-weight', 'bold')
+        .text('ID Localidade de Origem');
 }

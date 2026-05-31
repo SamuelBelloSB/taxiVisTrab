@@ -250,13 +250,13 @@ h2 {
 }
 
 .year-header {
-  background: #5b6346; /* Musgo mais denso */
-  color: white;
-  padding: 15px;
-  border-radius: 8px;
-  font-size: 1.4em;
+  background: transparent;
+  color: #5b6346;
+  padding: 20px 0;
+  border-bottom: 3px solid #5b6346;
+  font-size: 1.8em;
   font-weight: bold;
-  text-align: center;
+  text-align: left;
 }
 
 /* Moldura elegante para conter cada SVG e seu título */
@@ -448,13 +448,15 @@ button:hover {
 .dashboard-footer {
   width: 100%;
   margin-top: 50px;
-  padding: 30px;
-  border-top: 2px solid #d4c3a3;
+  padding: 45px 30px;
   display: flex;
   flex-direction: column;
   gap: 20px;
-  background-color: transparent; /* Mistura com o fundo da página */
+  background-color: #5b6346; /* Musgo Escuro para destaque */
+  border-top: 4px solid #5b6346;
+  color: #f7f3f0;
   box-sizing: border-box;
+  box-shadow: 0 -10px 30px rgba(0,0,0,0.15);
 }
 
 .footer-info {
@@ -468,14 +470,14 @@ button:hover {
 .footer-column h4 {
   margin: 0 0 10px 0;
   font-size: 0.9em;
-  color: #5b6346;
+  color: #d4c3a3;
   text-transform: uppercase;
   letter-spacing: 1px;
 }
 
 .footer-column p, .footer-column a {
   font-size: 0.85em;
-  color: #8b7d6b;
+  color: #f7f3f0;
   line-height: 1.6;
   text-decoration: none;
 }
