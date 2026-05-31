@@ -1,5 +1,5 @@
 import { Taxi } from "./taxi.js";
-import { loadChart, loadHeatmap, loadRidgePlot, loadTimeSeries, loadKPITable, loadComparisonSeries, loadAdjacencyMatrix, clearChart } from './plot.js';
+import { loadChart, loadHeatmap, loadTimeSeries, loadKPITable, loadComparisonSeries, loadAdjacencyMatrix, clearChart } from './plot.js';
 import * as d3 from 'd3';
 
 let cacheDadosHeatmap = [];

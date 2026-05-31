@@ -190,52 +190,52 @@ export function loadHeatmap(data, selector = '#heatmap-svg', margens = { left: 5
 }
 
 // 2. GRAFICO DO RIDGE PLOT
-export function loadRidgePlot(data, selector = '#ridge-svg', margens = { left: 50, right: 25, top: 30, bottom: 40 }) {
-    const svg = d3.select(selector);
-    if (!svg.node()) return;
-    const larguraGrafico = (svg.node().getBoundingClientRect().width || 500) - margens.left - margens.right;
-    const alturaGrafico = (svg.node().getBoundingClientRect().height || 280) - margens.top - margens.bottom;
+// export function loadRidgePlot(data, selector = '#ridge-svg', margens = { left: 50, right: 25, top: 30, bottom: 40 }) {
+//     const svg = d3.select(selector);
+//     if (!svg.node()) return;
+//     const larguraGrafico = (svg.node().getBoundingClientRect().width || 500) - margens.left - margens.right;
+//     const alturaGrafico = (svg.node().getBoundingClientRect().height || 280) - margens.top - margens.bottom;
 
-    svg.selectAll('*').remove();
-    const g = svg.append('g').attr('transform', 'translate(' + margens.left + ', ' + margens.top + ')');
+//     svg.selectAll('*').remove();
+//     const g = svg.append('g').attr('transform', 'translate(' + margens.left + ', ' + margens.top + ')');
 
-    const mapX = d3.scaleLinear().domain([0, 23]).range([0, larguraGrafico]);
-    const mapY = d3.scaleBand().domain(domDiasMinuscula).range([0, alturaGrafico]);
+//     const mapX = d3.scaleLinear().domain([0, 23]).range([0, larguraGrafico]);
+//     const mapY = d3.scaleBand().domain(domDiasMinuscula).range([0, alturaGrafico]);
 
-    const maxVolume = d3.max(data, function(d) { return d.volume; }) || 1;
-    const escalaAlturaRidge = d3.scaleLinear().domain([0, maxVolume]).range([0, 45]);
+//     const maxVolume = d3.max(data, function(d) { return d.volume; }) || 1;
+//     const escalaAlturaRidge = d3.scaleLinear().domain([0, maxVolume]).range([0, 45]);
 
-    domDiasMinuscula.forEach(function(dia) {
-        let dadosDoDia = data.filter(function(d) { return d.dia_semana === dia; });
-        dadosDoDia.sort(function(a, b) { return a.hora - b.hora; });
+//     domDiasMinuscula.forEach(function(dia) {
+//         let dadosDoDia = data.filter(function(d) { return d.dia_semana === dia; });
+//         dadosDoDia.sort(function(a, b) { return a.hora - b.hora; });
 
-        let linhaEvolucao = d3.line()
-            .x(function(d) { return mapX(d.hora); })
-            .y(function(d) { 
-                let baseDoDia = (mapY(dia) || 0) + mapY.bandwidth() / 1.2;
-                return baseDoDia - escalaAlturaRidge(d.volume); 
-            });
+//         let linhaEvolucao = d3.line()
+//             .x(function(d) { return mapX(d.hora); })
+//             .y(function(d) { 
+//                 let baseDoDia = (mapY(dia) || 0) + mapY.bandwidth() / 1.2;
+//                 return baseDoDia - escalaAlturaRidge(d.volume); 
+//             });
 
-        g.append('path').datum(dadosDoDia)
-            .attr('fill', '#5b6346').attr('stroke', '#fdfbf7').attr('stroke-width', 1) 
-            .attr('style', 'opacity: 0.8').attr('d', linhaEvolucao);
-    });
+//         g.append('path').datum(dadosDoDia)
+//             .attr('fill', '#5b6346').attr('stroke', '#fdfbf7').attr('stroke-width', 1) 
+//             .attr('style', 'opacity: 0.8').attr('d', linhaEvolucao);
+//     });
 
-    // Eixo X
-    g.append('g')
-        .attr('transform', 'translate(0, ' + alturaGrafico + ')')
-        .call(d3.axisBottom(mapX).tickFormat(d => d + 'h'))
-        .append('text')
-        .attr('x', larguraGrafico)
-        .attr('y', 35)
-        .attr('fill', '#5b6346')
-        .attr('text-anchor', 'end')
-        .text('Horário');
+//     // Eixo X
+//     g.append('g')
+//         .attr('transform', 'translate(0, ' + alturaGrafico + ')')
+//         .call(d3.axisBottom(mapX).tickFormat(d => d + 'h'))
+//         .append('text')
+//         .attr('x', larguraGrafico)
+//         .attr('y', 35)
+//         .attr('fill', '#5b6346')
+//         .attr('text-anchor', 'end')
+//         .text('Horário');
 
-    g.append('g').call(d3.axisLeft(mapY).tickFormat(function(d) {
-        return rotulosDiasPT[domDiasMinuscula.indexOf(d)] || d;
-    }));
-}
+//     g.append('g').call(d3.axisLeft(mapY).tickFormat(function(d) {
+//         return rotulosDiasPT[domDiasMinuscula.indexOf(d)] || d;
+//     }));
+// }
 
 // 3. GRAFICO DA TIME SERIES
 export function loadTimeSeries(data, selector = '#series-svg', margens = { left: 60, right: 25, top: 30, bottom: 60 }) {

@@ -2,18 +2,6 @@
 node_modules/
 .DS_Store
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
-# Bases de dados locais e caches
-00 - data/yellow/*.parquet
-00 - data/green/*.parquet
-00 - data/*.db
-00 - data/*.db-journal
-local_cache.db
->>>>>>> 3402590f0c34da50f75013e9da72b2d6b27073bd
-=======
->>>>>>> Samuel
 
 # Logs e ambiente
 .env
