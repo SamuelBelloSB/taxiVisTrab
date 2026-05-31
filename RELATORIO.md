@@ -1,3 +1,9 @@
+### Trabalho de Visualização de Dados - Redesign do TaxiVIS
+Disciplina: Visualização de Dados
+Docente: Marcos Lage
+Discentes: Danilo Murilo e Samuel Bello
+
+
 ## 1. 🚖 Introdução e Contextualização do Sistema
 
 O framework original TaxiVis (Ferreira et al., 2013) consolidou-se como um marco na análise visual urbana ao permitir a exploração espaço-temporal de trajetórias de táxis em Nova Iorque através de consultas geográficas baseadas em mapas.
@@ -99,6 +105,7 @@ O Scatterplot é o idioma visual definitivo para analisar a relação bidimensio
 * **Linhas de Referência (Gridlines):** Auxiliam o olho a ancorar pontos flutuantes de volta aos eixos.
 
 ---
+<div style="page-break-after: always;"></div>
 
 ### 📈 VISUALIZAÇÃO DE SÉRIE TEMPORAL
 
