@@ -104,7 +104,8 @@ O Scatterplot é o idioma visual definitivo para analisar a relação bidimensio
 
 Gráfico de Série Temporal (Time Series com Área Preenchida) destaca a eficácia do mapeamento espacial alinhado para revelar a evolução contínua de dados ao longo do tempo.
 
-![Serie Temporal - 2023](https://github.com/SamuelBelloSB/taxiVisTrab/blob/main/00%20-%20data/img/serieTemporal.png?raw=true)
+<img src="https://github.com/SamuelBelloSB/taxiVisTrab/blob/main/00%20-%20data/img/serieTemporal.png?raw=true" width="650" alt="Serie Temporal - 2023">
+
 
 #### 📦 What (Dados e Atributos)
 
@@ -165,6 +166,7 @@ A visualização consome uma tabela de dados pré-agregada do DuckDB que sumariz
 Muito eficiente para a exploração de topologias de rede, focando inteiramente em relações espaciais e de fluxo.
 
 ![Matriz de adjascência - 2023](https://github.com/SamuelBelloSB/taxiVisTrab/blob/main/00%20-%20data/img/matrizDeAdjacenciaAm.png?raw=true)
+
 
 #### 📦 What (Dados e Atributos)
 
