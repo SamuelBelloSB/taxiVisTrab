@@ -1,30 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
-    <title>Taxi Vis - Visualização de Táxis</title>
-  <script type="module" crossorigin src="/assets/index-B0nfRcco.js"></script>
-  <link rel="stylesheet" crossorigin href="/assets/index-BABer0Jf.css">
+    <title>Dashboard de Densidade de Mobilidade</title>
+  <script type="module" crossorigin src="/assets/index-Dr3UzBI7.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-CNTPdSsI.css">
 </head>
-
 <body>
+    <nav class="anchor-nav">
+        <button id="toggle-sidebar" title="Minimizar Menu">☰</button>
+        <div class="nav-content" id="dynamic-nav">
+            <span>Frotas</span>
+        </div>
+        <div class="nav-content" id="matrix-nav">
+            <span>Matrizes</span>
+            <div class="matrix-tabs" id="matrix-tabs"></div>
+        </div>
+        
+        <a href="#main-top" class="back-to-top">Voltar ao Topo</a>
+    </nav>
+
     <div class="main-container">
-        <div class="view-tabs">
-            <button id="viewMicroBtn" class="view-btn active">Visão Micro: Dispersão</button>
-            <button id="viewMacroBtn" class="view-btn">Visão Macro: Totais de Gorjeta</button>
-            <button id="viewSankeyBtn" class="view-btn">Visão Sankey: Fluxos Financeiros</button>
-            <button id="viewAdjBtn" class="view-btn">Visão: Matriz de Adjacência</button>
-        </div>
-
-        <svg></svg>
-        
-        <div class="button-container">
-            <button id="clearBtn">Limpar</button>
+        <!-- Visão Geral Comparativa (Fixa) -->
+        <div id="overview-container" class="overview-section">
+            <!-- Inserido via JavaScript -->
         </div>
         
-    </div>
-
+        <div class="timeline-wrapper" id="timeline-container">
+            <!-- Conteúdo Dinâmico Inserido via main.js -->
+        </div>
+    </div>
 </body>
-
 </html>
