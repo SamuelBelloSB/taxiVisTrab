@@ -1,4 +1,4 @@
-import * as d3 from 'd3';
+import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7/+esm';
 
 // Cores otimizadas para daltonismo (Paleta Okabe-Ito)
 // Yellow: Laranja/Amarelo (#e69f00), Green: Verde Azulado (#009e73)
