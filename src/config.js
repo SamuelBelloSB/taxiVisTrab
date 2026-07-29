@@ -1,18 +1,26 @@
 import * as duckdb from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/+esm";
 
 export async function loadDb() {
-  // Pega os links oficiais direto do CDN automaticamente (sem precisar de arquivos locais)
+  // 1. Pega os links oficiais do CDN
   const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
-  
-  // O DuckDB escolhe o melhor pacote para o navegador do usuário
   const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
 
-  // Instancia a versão assíncrona do DuckDB-wasm
-  const worker = new Worker(bundle.mainWorker);
+  // 2. O TRUQUE DO BLOB (Contorna o bloqueio de segurança CORS)
+  // Criamos uma URL temporária local que importa o worker do CDN
+  const worker_url = URL.createObjectURL(
+    new Blob([`importScripts("${bundle.mainWorker}");`], { type: 'text/javascript' })
+  );
+
+  // 3. Instancia o Web Worker usando a URL local
+  const worker = new Worker(worker_url);
   const logger = new duckdb.ConsoleLogger();
   const db = new duckdb.AsyncDuckDB(logger, worker);
   
+  // 4. Inicia o banco de dados
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  
+  // 5. Limpa a URL temporária da memória para otimização
+  URL.revokeObjectURL(worker_url);
 
   return db;
 }
