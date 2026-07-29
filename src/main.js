@@ -464,7 +464,7 @@ async function fetchScatterData(taxiInstance) {
 
 async function fetchCSVData() {
     try {
-        const resHeatmap = await fetch('data/processed/hourly_pattern.csv');
+        const resHeatmap = await fetch('./data/processed/hourly_pattern.csv');
         if (!resHeatmap.ok) throw new Error(`HTTP error! status: ${resHeatmap.status}`);
         
         const textHeatmap = await resHeatmap.text();
@@ -480,7 +480,7 @@ async function fetchCSVData() {
             };
         }).filter(d => d.ano >= 2022 && d.ano <= 2024);
 
-        const resSerie = await fetch('data/processed/daily_timeseries.csv');
+        const resSerie = await fetch('./data/processed/daily_timeseries.csv');
         if (!resSerie.ok) throw new Error(`HTTP error! status: ${resSerie.status}`);
 
         const textSerie = await resSerie.text();
