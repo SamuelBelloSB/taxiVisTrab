@@ -1,28 +1,17 @@
 import * as duckdb from "https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm@1.28.0/+esm";
-import duckdb_wasm from '@duckdb/duckdb-wasm/dist/duckdb-mvp.wasm?url';
-import mvp_worker from '@duckdb/duckdb-wasm/dist/duckdb-browser-mvp.worker.js?url';
-import duckdb_wasm_eh from '@duckdb/duckdb-wasm/dist/duckdb-eh.wasm?url';
-import eh_worker from '@duckdb/duckdb-wasm/dist/duckdb-browser-eh.worker.js?url';
-
-const MANUAL_BUNDLES = {
-  mvp: {
-    mainModule: duckdb_wasm,
-    mainWorker: mvp_worker,
-  },
-  eh: {
-    mainModule: duckdb_wasm_eh,
-    mainWorker: eh_worker,
-  },
-};
 
 export async function loadDb() {
-  // Select a bundle based on browser checks
-  const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
+  // Pega os links oficiais direto do CDN automaticamente (sem precisar de arquivos locais)
+  const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+  
+  // O DuckDB escolhe o melhor pacote para o navegador do usuário
+  const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
 
-  // Instantiate the asynchronus version of DuckDB-wasm
+  // Instancia a versão assíncrona do DuckDB-wasm
   const worker = new Worker(bundle.mainWorker);
   const logger = new duckdb.ConsoleLogger();
   const db = new duckdb.AsyncDuckDB(logger, worker);
+  
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
 
   return db;
