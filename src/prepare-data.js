@@ -57,10 +57,13 @@ async function main() {
             unionQueries.push(`
                 SELECT 
                     tpep_pickup_datetime::TIMESTAMP as pickup_time,
+                    tpep_dropoff_datetime::TIMESTAMP as dropoff_time,
                     'yellow' as tipo_taxi,
                     trip_distance,
                     fare_amount,
-                    tip_amount
+                    tip_amount,
+                    PULocationID as pu,
+                    DOLocationID as do_loc
                 FROM read_parquet([${yellowList}])
             `);
         }
@@ -70,10 +73,13 @@ async function main() {
             unionQueries.push(`
                 SELECT 
                     lpep_pickup_datetime::TIMESTAMP as pickup_time,
+                    lpep_dropoff_datetime::TIMESTAMP as dropoff_time,
                     'green' as tipo_taxi,
                     trip_distance,
                     fare_amount,
-                    tip_amount
+                    tip_amount,
+                    PULocationID as pu,
+                    DOLocationID as do_loc
                 FROM read_parquet([${greenList}])
             `);
         }
@@ -90,7 +96,10 @@ async function main() {
             CREATE OR REPLACE TABLE t_cleaned_trips AS
             SELECT 
                 pickup_time,
+                dropoff_time,
                 tipo_taxi,
+                pu,
+                do_loc,
                 EXTRACT(year FROM pickup_time) as ano,
                 EXTRACT(month FROM pickup_time) as mes,
                 EXTRACT(day FROM pickup_time) as dia,
@@ -98,6 +107,7 @@ async function main() {
                 EXTRACT(hour FROM pickup_time) as hora,
                 trip_distance,
                 fare_amount,
+                tip_amount,
                 (fare_amount + tip_amount) as total_pago
             FROM v_raw_trips
             WHERE pickup_time BETWEEN '2022-01-01' AND '2024-12-31'
@@ -154,6 +164,53 @@ async function main() {
                 GROUP BY CAST(pickup_time AS DATE), ano, mes, tipo_taxi, dia_semana
                 ORDER BY data
             ) TO '${timeseriesCsv}' WITH (HEADER, DELIMITER ',', FORCE_QUOTE *, NEW_LINE '\n');
+        `);
+
+        console.log('Exportando amostra para o Scatter (Distancia x Gorjeta)...');
+        const scatterCsv = path.join(PROCESSED_DIR, 'scatter_sample.csv').replace(/\\/g, '/');
+        await runQuery(`
+            COPY (
+                SELECT trip_distance, tip_amount, tipo_taxi, ano
+                FROM (
+                    SELECT
+                        ROUND(trip_distance, 2) as trip_distance,
+                        ROUND(tip_amount, 2) as tip_amount,
+                        tipo_taxi,
+                        ano,
+                        row_number() OVER (PARTITION BY tipo_taxi, ano ORDER BY random()) as rn
+                    FROM t_cleaned_trips
+                    WHERE trip_distance > 0.5 AND tip_amount > 0
+                )
+                WHERE rn <= 300
+                ORDER BY ano, tipo_taxi
+            ) TO '${scatterCsv}' WITH (HEADER, DELIMITER ',', FORCE_QUOTE *, NEW_LINE '\n');
+        `);
+
+        console.log('Exportando agregacao para a Matriz de Adjacencias...');
+        const matrixCsv = path.join(PROCESSED_DIR, 'adjacency_matrix.csv').replace(/\\/g, '/');
+        await runQuery(`
+            COPY (
+                SELECT pu, do_loc, tipo_taxi, ano, volume, avg_speed
+                FROM (
+                    SELECT
+                        pu,
+                        do_loc,
+                        tipo_taxi,
+                        ano,
+                        COUNT(*) as volume,
+                        ROUND(AVG(CASE
+                            WHEN date_diff('second', pickup_time, dropoff_time) > 0
+                            THEN trip_distance / (date_diff('second', pickup_time, dropoff_time) / 3600.0)
+                            ELSE NULL END), 2) as avg_speed,
+                        row_number() OVER (PARTITION BY tipo_taxi, ano ORDER BY COUNT(*) DESC) as rn
+                    FROM t_cleaned_trips
+                    WHERE pu IS NOT NULL AND do_loc IS NOT NULL
+                    GROUP BY pu, do_loc, tipo_taxi, ano
+                    HAVING COUNT(*) > 10
+                )
+                WHERE rn <= 100
+                ORDER BY ano, tipo_taxi, volume DESC
+            ) TO '${matrixCsv}' WITH (HEADER, DELIMITER ',', FORCE_QUOTE *, NEW_LINE '\n');
         `);
 
         console.log('Processamento concluído com sucesso!');

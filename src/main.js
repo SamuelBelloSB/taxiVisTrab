@@ -1,9 +1,18 @@
-import { Taxi } from "./taxi.js";
+// NOTA: taxi.js / config.js (DuckDB-Wasm) continuam no projeto para exploracao
+// local, mas foram tirados do caminho critico do boot. Em producao o dashboard
+// le apenas os CSVs pre-agregados gerados por `node src/prepare-data.js`.
 import { loadChart, loadHeatmap, loadTimeSeries, loadKPITable, loadComparisonSeries, loadAdjacencyMatrix, clearChart } from './plot.js';
 import * as d3 from 'https://cdn.jsdelivr.net/npm/d3@7/+esm';
 
+// Base dos dados processados. Publicando a raiz do repo no GitHub Pages o
+// conteudo de public/ fica sob ./public/. Se um dia passarem a publicar o
+// dist/ do Vite, basta trocar para './data/processed'.
+const DATA_BASE = './public/data/processed';
+
 let cacheDadosHeatmap = [];
 let cacheDadosSerie = [];
+let cacheDadosMatriz = [];
+let cacheDadosScatter = [];
 let globalScatterData = [];
 let selectedYear = 2022; // Padrão conforme solicitado
 
@@ -82,7 +91,7 @@ const UIManager = {
 /**
  * Overview Manager: Renderiza os gráficos de resumo no topo
  */
-async function renderOverview(taxiInstance) {
+async function renderOverview() {
     const container = document.getElementById('overview-container');
     const yearButtonsMarkup = AVAILABLE_YEARS.map(year => `
         <button class="year-btn ${currentMatrixYear === year ? 'active' : ''}" data-year="${year}">${year}</button>
@@ -225,7 +234,7 @@ function attachYearSelector() {
             
             const hash = window.location.hash || DEFAULT_MATRIX_HASH;
             const color = getMatrixColorFromHash(hash) || 'yellow';
-            await renderMatrixView(window.currentTaxiInstance, color);
+            await renderMatrixView(color);
         });
     });
     
@@ -244,66 +253,29 @@ function showYearSelector(visible) {
     if (selector) selector.style.display = visible ? 'flex' : 'none';
 }
 
-async function renderMatrixView(taxiInstance, color) {
-    if (!taxiInstance) return;
+async function renderMatrixView(color) {
     const taxiColor = color === 'green' ? 'green' : 'yellow';
 
     clearChart('#adjacency-matrix');
 
-    try {
-        await taxiInstance.loadTaxiForYear(currentMatrixYear, 1);
-        
-        const tableName = `taxi_${taxiColor}_${currentMatrixYear}`;
-        const fallbackTable = 'taxi_trips';
+    // BUGFIX: a versao anterior consultava a tabela `taxi_${cor}_${ano}`, que o
+    // loadTaxiForYear() nunca criava (ele sempre cria `taxi_trips`). A query
+    // estourava, caia no catch e o fallback nao filtrava por tipo_taxi, entao
+    // as matrizes Amarela e Verde renderizavam exatamente os mesmos dados.
+    const adjData = cacheDadosMatriz.filter(
+        d => d.tipo_taxi === taxiColor && d.ano === currentMatrixYear
+    );
 
-        const sql = (sourceTable) => `
-            SELECT 
-                pu, do_loc, COUNT(*) as volume,
-                AVG(CASE WHEN date_diff('second', pickup_datetime, dropoff_datetime) > 0 
-                    THEN trip_distance / (date_diff('second', pickup_datetime, dropoff_datetime)/3600.0) 
-                    ELSE NULL END) as avg_speed,
-                tipo_taxi
-            FROM ${sourceTable}
-            WHERE tipo_taxi = '${taxiColor}'
-                AND pu IS NOT NULL 
-                AND do_loc IS NOT NULL
-            GROUP BY pu, do_loc, tipo_taxi
-            HAVING COUNT(*) > 10
-            ORDER BY volume DESC
-            LIMIT 100
-        `;
-
-        const adjData = await taxiInstance.query(sql(tableName));
-        const fleetLabel = getFleetLabel(taxiColor);
-        const title = `Matriz de Adjacência - Frota ${fleetLabel} (${currentMatrixYear})`;
-        await loadAdjacencyMatrix(adjData, taxiColor, '#adjacency-matrix', { left: 70, right: 30, top: 45, bottom: 90 }, title);
-    } catch (error) {
-        console.warn(`Falha ao carregar dados do ano ${currentMatrixYear}.`, error);
-        try {
-            const fallbackTable = 'taxi_trips';
-            const sql = (sourceTable) => `
-                SELECT pu, do_loc, COUNT(*) as volume,
-                AVG(CASE WHEN date_diff('second', pickup_datetime, dropoff_datetime) > 0 
-                    THEN trip_distance / (date_diff('second', pickup_datetime, dropoff_datetime)/3600.0) 
-                    ELSE NULL END) as avg_speed,
-                tipo_taxi
-                FROM ${sourceTable}
-                WHERE pu IS NOT NULL AND do_loc IS NOT NULL
-                GROUP BY pu, do_loc, tipo_taxi
-                HAVING COUNT(*) > 10
-                ORDER BY volume DESC LIMIT 100
-            `;
-            const adjData = await taxiInstance.query(sql(fallbackTable));
-            const fleetLabel = color === 'yellow' ? 'Amarela' : 'Verde';
-            const title = `Matriz de Adjacência - Frota ${fleetLabel} (${currentMatrixYear})`;
-            await loadAdjacencyMatrix(adjData, color, '#adjacency-matrix', { left: 70, right: 30, top: 45, bottom: 90 }, title);
-        } catch (fallbackError) {
-            console.error('Falha ao carregar matriz de adjacência no fallback.', fallbackError);
-        }
+    if (adjData.length === 0) {
+        console.warn(`Sem dados de matriz para ${taxiColor} em ${currentMatrixYear}.`);
+        return;
     }
+
+    const title = `Matriz de Adjacência - Frota ${getFleetLabel(taxiColor)} (${currentMatrixYear})`;
+    await loadAdjacencyMatrix(adjData, taxiColor, '#adjacency-matrix', { left: 70, right: 30, top: 45, bottom: 90 }, title);
 }
 
-async function handleHashChange(taxiInstance) {
+async function handleHashChange() {
     let hash = window.location.hash || DEFAULT_MATRIX_HASH;
     if (!hash || (!isMatrixHash(hash) && !isFleetHash(hash))) {
         window.history.replaceState(null, '', DEFAULT_MATRIX_HASH);
@@ -317,7 +289,7 @@ async function handleHashChange(taxiInstance) {
         showYearSelector(true);
         updateMatrixButtons(color);
         updateYearButtons(currentMatrixYear);
-        await renderMatrixView(taxiInstance, color);
+        await renderMatrixView(color);
     } else {
         setOverviewVisible(false);
         setTimelineVisible(true);
@@ -325,13 +297,12 @@ async function handleHashChange(taxiInstance) {
     }
 }
 
-function setupRouting(taxiInstance) {
-    window.currentTaxiInstance = taxiInstance;
+function setupRouting() {
     renderMatrixNavigation();
     attachMatrixNavigation();
     attachYearSelector();
-    window.addEventListener('hashchange', () => handleHashChange(taxiInstance));
-    handleHashChange(taxiInstance);
+    window.addEventListener('hashchange', () => handleHashChange());
+    handleHashChange();
 }
 
 const DataProcessor = {
@@ -386,16 +357,18 @@ function orchestratePlots(dataScatter) {
 }
 
 window.onload = async () => {
-    const taxi = new Taxi();
-    await taxi.init();
-    
     setupSidebar();
-    globalScatterData = await fetchScatterData(taxi);
+
+    // Antes: init do DuckDB-Wasm + loadTaxi() baixava ~134 MB de Parquet
+    // (jan/2022, jan/2023, jan/2024 das duas frotas) e travava a main thread
+    // antes de desenhar qualquer coisa. No Pages a pagina nunca chegava a
+    // ficar idle. Agora sao ~4 CSVs agregados, na casa dos KB.
     await fetchCSVData();
-    
-    await renderOverview(taxi);
+    globalScatterData = cacheDadosScatter;
+
+    await renderOverview();
     orchestratePlots(globalScatterData);
-    setupRouting(taxi);
+    setupRouting();
     renderFooter();
 };
 
@@ -438,37 +411,15 @@ function renderFooter() {
     mainContainer.appendChild(footer);
 }
 
-async function fetchScatterData(taxiInstance) {
-    let dataScatter = [];
-    try {
-        console.log("Iniciando carregamento do DuckDB...");
-        await taxiInstance.loadTaxi([2022, 2023, 2024]);
-        
-        const sqlScatter = `
-            SELECT * FROM (
-                SELECT trip_distance, tip_amount, tipo_taxi, 
-                       CAST(EXTRACT(year FROM pickup_datetime) AS INTEGER) as ano,
-                       row_number() OVER(PARTITION BY tipo_taxi, EXTRACT(year FROM pickup_datetime)) as rn
-                FROM taxi_trips -- Esta tabela DEVE existir agora
-                WHERE trip_distance > 0.5 -- Focar em viagens com movimento relevante
-                AND tip_amount > 0         -- Remover gorjetas não registradas/zero para limpar a "mancha"
-                AND EXTRACT(year FROM pickup_datetime) BETWEEN 2022 AND 2024
-            ) WHERE rn <= 300
-        `;
-        dataScatter = await taxiInstance.query(sqlScatter);
-    } catch (e) {
-        console.error("Erro DuckDB:", e);
-    }
-    return dataScatter;
+async function fetchCsv(nome) {
+    const res = await fetch(`${DATA_BASE}/${nome}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status} ao buscar ${nome}`);
+    return d3.csvParse(await res.text());
 }
 
 async function fetchCSVData() {
     try {
-        const resHeatmap = await fetch('./public/data/processed/hourly_pattern.csv');
-        if (!resHeatmap.ok) throw new Error(`HTTP error! status: ${resHeatmap.status}`);
-        
-        const textHeatmap = await resHeatmap.text();
-        const dadosRaw = d3.csvParse(textHeatmap);
+        const dadosRaw = await fetchCsv('hourly_pattern.csv');
         cacheDadosHeatmap = dadosRaw.map(d => {
             return {
                 ano: Number(cleanStr(d.ano)),
@@ -480,11 +431,7 @@ async function fetchCSVData() {
             };
         }).filter(d => d.ano >= 2022 && d.ano <= 2024);
 
-        const resSerie = await fetch('./public/data/processed/daily_timeseries.csv');
-        if (!resSerie.ok) throw new Error(`HTTP error! status: ${resSerie.status}`);
-
-        const textSerie = await resSerie.text();
-        cacheDadosSerie = d3.csvParse(textSerie).map(s => {
+        cacheDadosSerie = (await fetchCsv('daily_timeseries.csv')).map(s => {
             return {
                 data: d3.timeParse("%Y-%m-%d")(cleanStr(s.data)),
                 ano: Number(cleanStr(s.ano)),
@@ -494,6 +441,22 @@ async function fetchCSVData() {
                 distancia_media: Number(cleanStr(s.distancia_media))
             };
         }).filter(s => s.data !== null && s.ano >= 2022 && s.ano <= 2024);
+
+        cacheDadosScatter = (await fetchCsv('scatter_sample.csv')).map(d => ({
+            trip_distance: Number(cleanStr(d.trip_distance)),
+            tip_amount: Number(cleanStr(d.tip_amount)),
+            tipo_taxi: cleanStr(d.tipo_taxi).toLowerCase(),
+            ano: Number(cleanStr(d.ano))
+        }));
+
+        cacheDadosMatriz = (await fetchCsv('adjacency_matrix.csv')).map(d => ({
+            pu: Number(cleanStr(d.pu)),
+            do_loc: Number(cleanStr(d.do_loc)),
+            tipo_taxi: cleanStr(d.tipo_taxi).toLowerCase(),
+            ano: Number(cleanStr(d.ano)),
+            volume: Number(cleanStr(d.volume)),
+            avg_speed: cleanStr(d.avg_speed) === '' ? null : Number(cleanStr(d.avg_speed))
+        }));
 
         // Debug para verificar se os dados verdes existem no dataset carregado
         const checkFrotas = d3.rollup(cacheDadosSerie, v => d3.sum(v, d => d.volume), d => d.tipo_taxi);

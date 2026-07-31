@@ -8,7 +8,7 @@ O projeto utiliza uma arquitetura moderna de processamento de dados híbrido:
 
 1.  **Frontend:** Desenvolvido em Vanilla JavaScript com a biblioteca **D3.js** para todas as renderizações de SVG.
 2.  **Processamento em Tempo Real:** Utiliza **DuckDB-Wasm** para executar consultas SQL complexas diretamente no navegador sobre arquivos Parquet.
-3.  **Pré-processamento:** Um script Node.js (`src/prepare-data.js`) agrega milhões de registros brutos em arquivos CSV otimizados para as séries temporais e heatmaps.
+3.  **Pré-processamento:** Um script Node.js (`src/prepare-data.js`) agrega milhões de registros brutos em arquivos CSV otimizados, que são o que o dashboard consome em produção.
 4.  **Estética:** Design minimalista com paleta de cores "Umber e Moss" (terroso), focado em alto contraste e redução de ruído visual.
 
 ## Como Executar
@@ -27,7 +27,18 @@ O projeto utiliza uma arquitetura moderna de processamento de dados híbrido:
    ```bash
    node src/prepare-data.js
    ```
-   Isso gerará os arquivos em `public/data/processed/` necessários para o carregamento rápido.
+   Isso gerará em `public/data/processed/` os quatro CSVs que o dashboard consome:
+   `hourly_pattern.csv`, `daily_timeseries.csv`, `scatter_sample.csv` e `adjacency_matrix.csv`
+   (menos de 1 MB somados).
+
+### Publicação (GitHub Pages)
+
+Os arquivos `.parquet` são ignorados pelo git: são ~1,9 GB e o
+[limite do GitHub Pages é 1 GB](https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits).
+O dashboard publicado lê somente os CSVs pré-agregados, por isso carrega
+instantaneamente. O DuckDB-Wasm (`src/config.js`, `src/taxi.js`) continua
+disponível para exploração local sobre os Parquet brutos, mas não é usado no
+carregamento da página.
 
 ### Execução
 Abra o `index.html` através de um servidor local (necessário para o suporte a Web Workers do DuckDB-Wasm).

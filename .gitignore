@@ -5,3 +5,11 @@ node_modules/
 
 # Logs e ambiente
 .env
+# Dados brutos: ~1.9 GB de Parquet. O limite do GitHub Pages e 1 GB
+# (https://docs.github.com/en/pages/getting-started-with-github-pages/github-pages-limits).
+# Baixe do NYC TLC e rode `node src/prepare-data.js` para gerar os CSVs.
+00 - data/**/*.parquet
+00 - data/local_cache.db
+
+# Build
+dist/
