@@ -226,11 +226,13 @@ function attachYearSelector() {
 
     yearSelector.querySelectorAll('.year-btn').forEach(button => {
         button.addEventListener('click', async () => {
-            const selectedYear = parseInt(button.dataset.year);
-            if (selectedYear === currentMatrixYear) return;
-            
-            currentMatrixYear = selectedYear;
-            updateYearButtons(selectedYear);
+            // nome proprio: `selectedYear` (modulo) controla os blocos de frota,
+            // `currentMatrixYear` controla a matriz. Sao independentes.
+            const ano = parseInt(button.dataset.year);
+            if (ano === currentMatrixYear) return;
+
+            currentMatrixYear = ano;
+            updateYearButtons(ano);
             
             const hash = window.location.hash || DEFAULT_MATRIX_HASH;
             const color = getMatrixColorFromHash(hash) || 'yellow';
@@ -242,7 +244,11 @@ function attachYearSelector() {
 }
 
 function updateYearButtons(activeYear) {
-    document.querySelectorAll('.year-btn').forEach(button => {
+    // BUGFIX: o seletor era global ('.year-btn'), entao alternar o ano da matriz
+    // tambem repintava os botoes dos blocos de frota - que sao controlados por
+    // `selectedYear`, uma variavel diferente. O botao marcava 2024 enquanto os
+    // graficos ainda mostravam 2022. Agora fica restrito ao seletor da matriz.
+    document.querySelectorAll('#matrix-year-selector .year-btn').forEach(button => {
         const btnYear = parseInt(button.dataset.year);
         button.classList.toggle('active', btnYear === activeYear);
     });
